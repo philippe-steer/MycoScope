@@ -2,7 +2,7 @@
 
 - Contours des départements : france-geojson (G. David, données IGN Admin Express)
 - BD Forêt® V2 (IGN, Licence Ouverte) : API de téléchargement de la Géoplateforme
-- BD Charm-50 (BRGM) : cartes géologiques harmonisées 1/50 000
+- BD Charm-50 (BRGM) : cartes géologiques harmonisées 1/50 000 (miroir data.cquest.org)
 - SoilGrids 2.0 (ISRIC, CC-BY 4.0) : pH eau 0-5 cm, 250 m
 """
 from __future__ import annotations
@@ -19,8 +19,11 @@ import requests
 UA = {"User-Agent": "MycoScope-pipeline (+https://github.com/philippe-steer/MycoScope)"}
 DEPTS_URL = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements.geojson"
 GEOPF = "https://data.geopf.fr/telechargement"
-CHARM_URL = "https://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{code}.zip"
-CHARM_ALIASES = {"75": "075", "92": "075", "93": "075", "94": "075", "2A": "020", "2B": "020"}
+# Miroir de C. Quest (le BRGM ne sert plus ces archives et filtre les accès automatiques)
+CHARM_URL = "https://data.cquest.org/brgm/bd_charm_50/2019/GEO050K_HARM_{code}.zip"
+IDF = "075_077_078_091_092_093_094_095"
+CHARM_ALIASES = {"59": "059_062", "62": "059_062", "2A": "02A", "2B": "02B",
+                 **{d: IDF for d in ("75", "77", "78", "91", "92", "93", "94", "95")}}
 SOILGRIDS_PH = "https://files.isric.org/soilgrids/latest/data/phh2o/phh2o_0-5cm_mean.vrt"
 
 
@@ -97,7 +100,7 @@ CHARM_RELEASE = "sources-charm"   # release du dépôt contenant les GEO050K_HAR
 def _fetch_charm(code: str, d: Path) -> bool:
     """Archive départementale BD Charm-50, par ordre de préférence :
     1. dossier local $MYCO_CHARM_DIR ; 2. release « sources-charm » du dépôt (gh, dans Actions) ;
-    3. site du BRGM (anciens liens, souvent refusés depuis 2026)."""
+    3. miroir data.cquest.org des archives 2019 du BRGM."""
     import os
     import subprocess
     name = f"GEO050K_HARM_{code}.zip"
@@ -127,7 +130,7 @@ def load_charm(dep: str, work: Path):
     d = work / f"charm_{dep}"
     if not d.exists():
         d.mkdir(parents=True)
-        codes = [dep.zfill(3)] + ([CHARM_ALIASES[dep]] if dep in CHARM_ALIASES else [])
+        codes = [CHARM_ALIASES[dep]] if dep in CHARM_ALIASES else [dep.zfill(3)]
         for c in codes:
             if _fetch_charm(c, d):
                 break

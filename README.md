@@ -28,12 +28,10 @@ Sans publicité, sans compte, sans serveur : données ouvertes uniquement.
 | Couches France | Actions « Data – couches France » | lancement manuel (≈ 96 jobs) → release `data-v1/france.pmtiles` |
 | Nappes | Actions « Data – statistiques des nappes » | manuel ou tous les 3 mois → `assets/piezo_stats.json` |
 
-**Géologie (BD Charm-50)** : depuis 2026 le BRGM ne sert plus les anciens liens
-`GEO050K_HARM_XXX.zip` et son pare-feu refuse les requêtes venant de GitHub. Déposer les
-archives départementales (`GEO050K_HARM_035.zip`, …) dans une release nommée
-**`sources-charm`** du dépôt (glisser-déposer dans l'interface GitHub) : le pipeline les y
-prend en priorité. Sans elles, la géologie reste « inconnue » et l'habitat repose sur
-l'essence, le pH SoilGrids et le relief. En local : `MYCO_CHARM_DIR=/chemin/vers/zips`.
+**Géologie (BD Charm-50)** : le BRGM ne sert plus les archives départementales ; le pipeline
+les prend sur le miroir de Christian Quest (`data.cquest.org/brgm/bd_charm_50/2019/`), ou en
+priorité dans une release `sources-charm` du dépôt si elle existe (en local :
+`MYCO_CHARM_DIR=/chemin/vers/zips`).
 
 **Hébergement des couches** : l'appli lit `france.pmtiles` dans la release `data-v1`.
 Tant que le dépôt est privé, ce fichier n'est pas accessible sans authentification : rendre
