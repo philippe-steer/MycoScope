@@ -1,0 +1,112 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["pipeline/**", ".github/workflows/data-*.yml", "*.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      # Signing key: from repository secrets if set (needed once the repo is public),
+      # otherwise from the key file kept in the private repository.
+      - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.MS_KEYSTORE_B64 }}
+          KS_STORE: ${{ secrets.MS_STORE_PASS }}
+          KS_ALIAS: ${{ secrets.MS_KEY_ALIAS }}
+          KS_KEY: ${{ secrets.MS_KEY_PASS }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "MS_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+            echo "MS_STORE_PASS=$KS_STORE" >> "$GITHUB_ENV"
+            echo "MS_KEY_ALIAS=$KS_ALIAS" >> "$GITHUB_ENV"
+            echo "MS_KEY_PASS=$KS_KEY" >> "$GITHUB_ENV"
+          elif [ -f app/mycoscope.keystore ]; then
+            echo "MS_KEYSTORE=$GITHUB_WORKSPACE/app/mycoscope.keystore" >> "$GITHUB_ENV"
+            echo "MS_STORE_PASS=mycoscope" >> "$GITHUB_ENV"
+            echo "MS_KEY_ALIAS=mycoscope" >> "$GITHUB_ENV"
+            echo "MS_KEY_PASS=mycoscope" >> "$GITHUB_ENV"
+          else
+            echo "No signing key: APK will use the debug key."
+          fi
+
+      - name: Unit tests (Kotlin model = Python reference)
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew testDebugUnitTest --console=plain 2>&1 | tee build.log
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --console=plain 2>&1 | tee -a build.log
+
+      # Same build F-Droid will run: release, without our key (must succeed unsigned)
+      - name: Check F-Droid style release build
+        run: |
+          set -o pipefail
+          env -u MS_KEYSTORE ./gradlew assembleRelease --console=plain 2>&1 | tee -a build.log
+          ls -la app/build/outputs/apk/release/
+
+      - name: Report build errors as annotations
+        if: failure()
+        run: |
+          grep -E "^e: |error:|FAILED|expected:|AssertionError|What went wrong|Could not|Execution failed|> |Lint found" build.log | head -150 > errors.txt || true
+          split -l 15 errors.txt chunk_ || true
+          for f in chunk_*; do
+            [ -f "$f" ] || continue
+            msg=$(sed -e 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')
+            echo "::error title=build::${msg}"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MycoScope-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Publish APK to the 'apk' branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir out && cp app/build/outputs/apk/debug/app-debug.apk out/MycoScope.apk
+          cd out
+          git init -q -b apk
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add MycoScope.apk
+          git commit -q -m "APK from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" apk
+
+      # New version on main (versionName without a release yet) -> signed release APK,
+      # tag vX.Y.Z and GitHub release. F-Droid picks up new versions from these tags.
+      - name: GitHub release for new versions
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)
+          CODE=$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -1)
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists"; exit 0
+          fi
+          ./gradlew assembleRelease --console=plain
+          cp app/build/outputs/apk/release/app-release.apk "MycoScope-v$VERSION.apk"
+          NOTES="fastlane/metadata/android/en-US/changelogs/$CODE.txt"
+          [ -f "$NOTES" ] || echo "MycoScope $VERSION" > "$NOTES"
+          gh release create "v$VERSION" "MycoScope-v$VERSION.apk" --target "$GITHUB_SHA" \
+            --title "MycoScope $VERSION" --notes-file "$NOTES"

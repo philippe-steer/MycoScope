@@ -1,0 +1,27 @@
+name: Data – statistiques des nappes
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 2 */3 *"   # tous les trois mois
+
+permissions:
+  contents: write
+
+jobs:
+  piezo:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy requests
+      - run: cd pipeline && python -m mycoscope_pipeline.piezo ../app/src/main/assets/piezo_stats.json
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add app/src/main/assets/piezo_stats.json
+          git diff --cached --quiet || git commit -m "Mise à jour des statistiques des nappes (Hub'Eau)"
+          git push

@@ -1,0 +1,31 @@
+name: Pipeline tests
+
+on:
+  push:
+    paths: ["pipeline/**", "app/src/main/assets/species.json", ".github/workflows/pipeline-tests.yml"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pipeline/requirements.txt pytest
+      - run: cd pipeline && python -m pytest -q tests
+      # Le jeu de référence Kotlin doit correspondre au modèle Python actuel
+      - run: |
+          cd pipeline && PYTHONPATH=. python - <<'PY'
+          import json, numpy as np
+          from tests.make_fixture import weather
+          from mycoscope_pipeline.model import fruiting, load_species
+          fx = json.load(open("../app/src/test/resources/model_fixture.json"))
+          sp = {s["id"]: s for s in load_species()}
+          w = weather()
+          for c in fx["fruiting"]:
+              f = fruiting(sp[c["species"]], w, c["elev"], c["dm"])
+              assert np.allclose(f, c["f"], atol=1e-5), c["species"] + " : relancer tests/make_fixture.py"
+          print("fixture à jour")
+          PY
