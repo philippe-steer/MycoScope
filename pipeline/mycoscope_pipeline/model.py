@@ -95,13 +95,13 @@ def habitat(sp: dict, forest, litho, phc, elev) -> np.ndarray:
             * trap(e, *sp["habitat"]["elev"]))
 
 
-def moisture_offset(twic, gw_anomaly=0.0):
+def moisture_offset(twic, gw_anomaly=0.0, twi_gain=TWI_GAIN, gw_gain=GW_GAIN):
     """Décalage d'humidité locale : TWI (classe 1-15) + anomalie de nappe régionale (-1..1)."""
     twic = np.asarray(twic)
     twi = np.where(twic > 0, TWI_MIN + twic - 0.5, TWI_REF)
-    dm = TWI_GAIN * (twi - TWI_REF)
+    dm = twi_gain * (twi - TWI_REF)
     w = np.clip((twi - 8.0) / 5.0, 0.0, 1.0)
-    return np.clip(dm + GW_GAIN * np.asarray(gw_anomaly) * w, -DM_MAX, DM_MAX)
+    return np.clip(dm + gw_gain * np.asarray(gw_anomaly) * w, -DM_MAX, DM_MAX)
 
 
 def effective_elev(elev, aspc):

@@ -92,7 +92,9 @@ fun MycoApp() {
     val ctx = LocalContext.current
     val store = remember { Store(ctx.applicationContext) }
     val species = remember {
-        Species.parseAll(ctx.assets.open("species.json").bufferedReader().readText())
+        val txt = ctx.assets.open("species.json").bufferedReader().readText()
+        Model.loadGains(txt)
+        Species.parseAll(txt)
     }
     var spId by remember { mutableStateOf(store.species) }
     val sp = species.firstOrNull { it.id == spId } ?: species.first()

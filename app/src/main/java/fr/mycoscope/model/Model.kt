@@ -189,11 +189,21 @@ object Model {
     val DM_LEVELS = doubleArrayOf(-0.25, -0.125, 0.0, 0.125, 0.25)
     val ASPECT_DZ = doubleArrayOf(0.0, 120.0, 80.0, 0.0, -80.0, -120.0, -80.0, 0.0, 80.0)
 
+    /** Gains calés (species.json → "moisture_gains"), valeurs a priori sinon. */
+    @Volatile var twiGain = TWI_GAIN
+    @Volatile var gwGain = GW_GAIN
+
+    fun loadGains(speciesJson: String) {
+        val g = JSONObject(speciesJson).optJSONObject("moisture_gains") ?: return
+        twiGain = g.optDouble("twi_gain", TWI_GAIN)
+        gwGain = g.optDouble("gw_gain", GW_GAIN)
+    }
+
     fun moistureOffset(twic: Int, gw: Double): Double {
         val twi = if (twic > 0) Enc.TWI_MIN + twic - 0.5 else TWI_REF
-        val dm = TWI_GAIN * (twi - TWI_REF)
+        val dm = twiGain * (twi - TWI_REF)
         val w = ((twi - 8.0) / 5.0).coerceIn(0.0, 1.0)
-        return (dm + GW_GAIN * gw * w).coerceIn(-DM_MAX, DM_MAX)
+        return (dm + gwGain * gw * w).coerceIn(-DM_MAX, DM_MAX)
     }
 
     fun effectiveElev(elev: Double, aspc: Int) = elev + ASPECT_DZ[aspc.coerceIn(0, 8)]

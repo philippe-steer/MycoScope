@@ -1,0 +1,90 @@
+name: Calage (GBIF × SAFRAN-SIM2)
+
+# Lancement manuel. Observations GBIF datées → météo SAFRAN-SIM2 du jour → calage
+# phénologie / habitat / humidité locale → branche « calibration-AAAA-MM-JJ » à relire.
+on:
+  workflow_dispatch:
+    inputs:
+      species:
+        description: "Espèces à caler (ids séparés par des virgules) ; vide = toutes"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  occurrences:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas requests numpy
+      - run: cd pipeline && python -m mycoscope_pipeline.calib.gbif "$RUNNER_TEMP/occurrences.csv"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: occurrences
+          path: ${{ runner.temp }}/occurrences.csv
+
+  sim2:
+    needs: occurrences
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas requests numpy pyproj
+      - uses: actions/download-artifact@v4
+        with:
+          name: occurrences
+          path: ${{ runner.temp }}
+      - run: cd pipeline && python -m mycoscope_pipeline.calib.sim2 "$RUNNER_TEMP/occurrences.csv" "$RUNNER_TEMP/sim2.npz" --work "$RUNNER_TEMP/w"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sim2
+          path: ${{ runner.temp }}/sim2.npz
+          compression-level: 0
+
+  fit:
+    needs: [occurrences, sim2]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pipeline/requirements.txt pytest
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}
+          merge-multiple: true
+      - name: Couches et nappes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download data-v1 -p france.pmtiles -D "$RUNNER_TEMP" || echo "::warning::pas de france.pmtiles : habitat non calé"
+          gh release download sources-piezo -p piezo_history.npz -D "$RUNNER_TEMP" || echo "::warning::pas d'historique des nappes"
+      - name: Calage
+        run: |
+          cd pipeline
+          ARGS="--occ $RUNNER_TEMP/occurrences.csv --sim2 $RUNNER_TEMP/sim2.npz --out ../calibration"
+          [ -f "$RUNNER_TEMP/france.pmtiles" ] && ARGS="$ARGS --pmtiles $RUNNER_TEMP/france.pmtiles"
+          [ -f "$RUNNER_TEMP/piezo_history.npz" ] && ARGS="$ARGS --piezo $RUNNER_TEMP/piezo_history.npz"
+          python -m mycoscope_pipeline.calib.run $ARGS --species "${{ inputs.species }}"
+      - name: Branche à relire
+        run: |
+          cp calibration/species_calibrated.json app/src/main/assets/species.json
+          cd pipeline && PYTHONPATH=. python tests/make_fixture.py && cd ..
+          cat calibration/report.md >> "$GITHUB_STEP_SUMMARY"
+          B="calibration-$(date +%F)"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -b "$B"
+          git add calibration app/src/main/assets/species.json app/src/test/resources
+          git commit -m "Calage GBIF × SAFRAN-SIM2 ($(date +%F))"
+          git push -f origin "$B"
