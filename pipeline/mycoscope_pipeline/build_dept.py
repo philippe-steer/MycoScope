@@ -85,4 +85,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    import traceback
+    try:
+        main()
+    except Exception as e:  # noqa: BLE001
+        tb = traceback.format_exc().strip().splitlines()
+        msg = " | ".join(tb[-6:]).replace("%", "%25")
+        print(f"::error title=Dépt {sys.argv[1] if len(sys.argv) > 1 else '?'}::{type(e).__name__}: {msg}"[:1800])
+        raise
