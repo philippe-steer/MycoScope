@@ -37,11 +37,6 @@ jobs:
             echo "MS_STORE_PASS=$KS_STORE" >> "$GITHUB_ENV"
             echo "MS_KEY_ALIAS=$KS_ALIAS" >> "$GITHUB_ENV"
             echo "MS_KEY_PASS=$KS_KEY" >> "$GITHUB_ENV"
-          elif [ -f app/mycoscope.keystore ]; then
-            echo "MS_KEYSTORE=$GITHUB_WORKSPACE/app/mycoscope.keystore" >> "$GITHUB_ENV"
-            echo "MS_STORE_PASS=mycoscope" >> "$GITHUB_ENV"
-            echo "MS_KEY_ALIAS=mycoscope" >> "$GITHUB_ENV"
-            echo "MS_KEY_PASS=mycoscope" >> "$GITHUB_ENV"
           else
             echo "No signing key: APK will use the debug key."
           fi
@@ -95,7 +90,7 @@ jobs:
       # New version on main (versionName without a release yet) -> signed release APK,
       # tag vX.Y.Z and GitHub release. F-Droid picks up new versions from these tags.
       - name: GitHub release for new versions
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.MS_KEYSTORE != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
