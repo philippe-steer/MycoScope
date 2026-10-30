@@ -104,17 +104,23 @@ def load_charm(dep: str, work: Path):
                 zipfile.ZipFile(io.BytesIO(data)).extractall(d)
                 break
             except Exception as e:  # noqa: BLE001
-                print(f"BD Charm {c}: {e}")
+                print(f"::warning title=BD Charm {dep}::{c}: {type(e).__name__} {e}"[:900])
     shp = [p for p in d.rglob("*.shp") if "S_FGEOL" in p.name.upper()]
     if not shp:
-        print(f"!! pas de géologie pour {dep}")
+        names = [p.name for p in d.rglob("*")][:15]
+        print(f"::warning title=BD Charm {dep}::pas de couche S_FGEOL ; fichiers : {names}")
         return None
     gdf = gpd.read_file(shp[0])
+    if gdf.crs is None:
+        gdf = gdf.set_crs("EPSG:2154")
     cols = list(gdf.columns)
     prio = [c for c in cols if c.upper().startswith("LITHO")] + \
            [c for c in cols if c.upper() in ("DESCR", "DESCRIPTIO", "LEGENDE", "LIBELLE")]
     gdf["cls"] = [litho_class(*[str(row[c]) for c in prio if row[c] is not None])
                   for _, row in gdf.iterrows()]
+    from collections import Counter
+    top = Counter(gdf["cls"]).most_common(6)
+    print(f"::notice title=BD Charm {dep}::{len(gdf)} polygones, colonnes {prio}, classes {top}")
     return gdf[["cls", "geometry"]]
 
 

@@ -74,7 +74,14 @@ def main():
     print(f"  pH ok ({time.time()-t0:.0f}s)")
     rgba = build_arrays(grid, geom, forest, litho, dem, ph)
     k = write_tiles(rgba, grid, a.out)
-    print(f"  {k} tuiles écrites ({time.time()-t0:.0f}s)")
+    v = rgba[..., 0] > 0
+    def share(ch, shift, mask):
+        vals, cnt = np.unique((rgba[..., ch][v] >> shift) & mask, return_counts=True)
+        return {int(a): round(100 * b / v.sum(), 1) for a, b in sorted(zip(vals, cnt), key=lambda t: -t[1])[:6]}
+    print(f"::notice title=Dépt {a.dept}::{k} tuiles en {time.time()-t0:.0f}s ; forêt {share(0, 0, 255)} ; "
+          f"géologie {share(1, 3, 31)} ; pH {share(1, 0, 7)} ; TWI {share(2, 4, 15)}")
+    if share(1, 3, 31).get(0, 0) > 50:
+        print(f"::warning title=Dépt {a.dept}::géologie absente sur plus de la moitié du département")
 
 
 if __name__ == "__main__":
