@@ -1,0 +1,11 @@
+name: Probe data URLs
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          curl -sL -m 60 "https://data.cquest.org/brgm/bd_charm_50/2019/" -o l.html; echo "::notice title=size::$(wc -c < l.html)"
+          grep -oE 'href="[^"]+"' l.html | sed 's/href="//;s/"$//' | tr '\n' ' ' | cut -c1-4000 | sed 's/^/::notice title=files::/'; echo
+          f=$(grep -oE 'href="[^"]*035[^"]*"' l.html | head -1 | sed 's/href="//;s/"$//')
+          [ -n "$f" ] && curl -sL -m 300 "https://data.cquest.org/brgm/bd_charm_50/2019/$f" -o d.zip && unzip -l d.zip | awk '{print $4}' | grep -iE "shp$" | tr '\n' ' ' | sed 's/^/::notice title=035 content::/'; echo
