@@ -19,7 +19,7 @@ import requests
 UA = {"User-Agent": "MycoScope-pipeline (+https://github.com/philippe-steer/MycoScope)"}
 DEPTS_URL = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements.geojson"
 GEOPF = "https://data.geopf.fr/telechargement"
-CHARM_URL = "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{code}.zip"
+CHARM_URL = "https://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_{code}.zip"
 CHARM_ALIASES = {"75": "075", "92": "075", "93": "075", "94": "075", "2A": "020", "2B": "020"}
 SOILGRIDS_PH = "https://files.isric.org/soilgrids/latest/data/phh2o/phh2o_0-5cm_mean.vrt"
 
