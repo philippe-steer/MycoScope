@@ -10,3 +10,4 @@ pipeline/out/
 __pycache__/
 *.pmtiles
 .pytest_cache/
+!app/src/test/resources/sample.pmtiles
