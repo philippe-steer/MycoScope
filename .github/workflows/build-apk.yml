@@ -107,6 +107,7 @@ jobs:
           ./gradlew assembleRelease --console=plain
           cp app/build/outputs/apk/release/app-release.apk "MycoScope-v$VERSION.apk"
           NOTES="fastlane/metadata/android/en-US/changelogs/$CODE.txt"
+          mkdir -p "$(dirname "$NOTES")"
           [ -f "$NOTES" ] || echo "MycoScope $VERSION" > "$NOTES"
           gh release create "v$VERSION" "MycoScope-v$VERSION.apk" --target "$GITHUB_SHA" \
             --title "MycoScope $VERSION" --notes-file "$NOTES"
