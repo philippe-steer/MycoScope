@@ -155,6 +155,19 @@ def load_charm(dep: str, work: Path):
 
 # ------------------------------------------------------------------ SoilGrids pH
 def load_ph(grid) -> np.ndarray:
+    """pH SoilGrids ; si le serveur ISRIC est indisponible, pH inconnu (classe 0, facteur neutre)."""
+    import time
+    for attempt in range(4):
+        try:
+            return _load_ph(grid)
+        except Exception as e:  # noqa: BLE001
+            print(f"::warning title=SoilGrids::tentative {attempt + 1} : {type(e).__name__} {e}"[:400])
+            time.sleep(60 * (attempt + 1))
+    print("::warning title=SoilGrids::pH indisponible pour ce département (repli : pH inconnu)")
+    return np.full((grid.height, grid.width), np.nan, np.float32)
+
+
+def _load_ph(grid) -> np.ndarray:
     import rasterio
     from rasterio.enums import Resampling
     from rasterio.vrt import WarpedVRT

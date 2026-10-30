@@ -24,31 +24,41 @@ YEARS = 15
 MIN_YEARS = 5
 
 
-def stations() -> list[dict]:
+DEPTS = [f"{i:02d}" for i in range(1, 96) if i != 20] + ["2A", "2B"]
+
+
+def _stations_dept(dep: str) -> list[dict]:
     out, page = [], 1
-    since = (dt.date.today() - dt.timedelta(days=365)).isoformat()
     while True:
         for attempt in range(6):
             try:
                 r = requests.get(f"{API}/stations", headers=UA, timeout=300, params={
-                    "format": "json", "size": 2000, "page": page})
+                    "format": "json", "size": 2000, "page": page, "code_departement": dep})
                 r.raise_for_status()
                 d = r.json()
                 break
             except requests.RequestException:
-                time.sleep(20 * (attempt + 1))
+                time.sleep(15 * (attempt + 1))
         else:
-            raise RuntimeError(f"Hub'Eau stations page {page} inaccessible")
-        if page == 1 and d.get("data"):
-            ex = d["data"][0]
-            print(f"::notice title=Hub'Eau stations::{d.get('count')} stations ; champs {sorted(ex)[:40]}")
-        for s in d.get("data", []):
+            print(f"::warning title=Hub'Eau::stations du {dep} inaccessibles")
+            return out
+        out += d.get("data", [])
+        if not d.get("next") or page * 2000 >= 20000:
+            return out
+        page += 1
+
+
+def stations() -> list[dict]:
+    """Stations actives (mesures depuis moins d'un an) avec au moins MIN_YEARS ans de données.
+    Interrogation par département : l'API refuse de paginer au-delà de 20 000 résultats."""
+    since = (dt.date.today() - dt.timedelta(days=365)).isoformat()
+    out = []
+    for dep in DEPTS:
+        for s in _stations_dept(dep):
             s["x"] = s.get("x") or s.get("longitude")
             s["y"] = s.get("y") or s.get("latitude")
             out.append(s)
-        if not d.get("next"):
-            break
-        page += 1
+    print(f"::notice title=Hub'Eau stations::{len(out)} stations lues")
     return [s for s in out if s.get("x") and s.get("y") and (s.get("date_fin_mesure") or "") >= since
             and (s.get("nb_mesures_piezo") or 0) > 365 * MIN_YEARS]
 

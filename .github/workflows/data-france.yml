@@ -10,6 +10,10 @@ on:
         description: "Départements (ex. 35,22,29,56) ; vide = France métropolitaine"
         required: false
         default: ""
+      extra_runs:
+        description: "Ids de runs précédents dont reprendre les tuiles (ex. compléter des départements en échec)"
+        required: false
+        default: ""
       tag:
         description: "Release de destination"
         required: false
@@ -80,6 +84,18 @@ jobs:
         with:
           pattern: tiles-*
           path: ${{ runner.temp }}/all
+      - name: Tuiles des runs précédents
+        if: inputs.extra_runs != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for id in $(echo "${{ inputs.extra_runs }}" | tr ',' ' '); do
+            gh run download "$id" -p 'tiles-*' -D "$RUNNER_TEMP/prev_$id" || echo "::warning::run $id illisible"
+            for d in "$RUNNER_TEMP/prev_$id"/tiles-*; do
+              n=$(basename "$d")
+              [ -d "$RUNNER_TEMP/all/$n" ] || mv "$d" "$RUNNER_TEMP/all/$n"
+            done
+          done
       - name: Merge
         run: |
           ls "$RUNNER_TEMP/all" | tee depts.txt

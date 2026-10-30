@@ -71,47 +71,64 @@ def main():
     res = sorted(resources())
     end = dt.date.today()
     nd = (end - DAY0).days + 1
-    grid = None
-    sel = None
-    data = None
+    grid = cell_index = data = None
     for (_, _, url) in res:
-        fh, path = stream(url, a.work)
-        with fh:
-            for chunk in pd.read_csv(fh, sep=";", chunksize=2_000_000, low_memory=False):
-                chunk.columns = [c.strip().upper() for c in chunk.columns]
-                if grid is None:
-                    # grille régulière de 8 km (80 hm) : on recale les observations dessus
-                    x0 = float(chunk.LAMBX.iloc[0]) % 80
-                    y0 = float(chunk.LAMBY.iloc[0]) % 80
-                    ox, oy = TO_L2E.transform(occ.lon.to_numpy(), occ.lat.to_numpy())
-                    gx = x0 + 80 * np.round((ox / 100 - x0) / 80)
-                    gy = y0 + 80 * np.round((oy / 100 - y0) / 80)
-                    grid = np.unique(np.c_[gx, gy], axis=0)
-                    sel = np.arange(len(grid))
-                    cell_index = {(float(x), float(y)): k for k, (x, y) in enumerate(grid)}
-                    data = np.full((len(grid), nd, len(VARS)), np.nan, np.float32)
-                    print(f"::notice title=SIM2 grille::{len(grid)} mailles utiles (origine {x0}, {y0} hm)")
-                keys = list(zip(chunk.LAMBX.to_numpy(float), chunk.LAMBY.to_numpy(float)))
-                rows = np.array([cell_index.get(k, -1) for k in keys])
-                m = rows >= 0
-                if not m.any():
-                    continue
-                c = chunk[m]
-                dates = pd.to_datetime(c.DATE.astype(str), format="%Y%m%d").dt.date
-                di = np.array([(d - DAY0).days for d in dates])
-                ok = (di >= (START - DAY0).days) & (di < nd)
-                r, di = rows[m][ok], di[ok]
-                c = c[ok]
-                data[r, di, 0] = (c.PRENEI_Q.to_numpy(float) + c.PRELIQ_Q.to_numpy(float))
-                data[r, di, 1] = c.T_Q.to_numpy(float)
-                data[r, di, 2] = c.TINF_H_Q.to_numpy(float)
-                data[r, di, 3] = c.ETP_Q.to_numpy(float)
-        path.unlink()
-        print(f"::notice title=SIM2 lu::{path.name} ; jours couverts {(np.isfinite(data[:, :, 1]).any(0)).sum()}")
+        try:
+            grid, cell_index, data = _read_file(url, a.work, occ, nd, grid, cell_index, data)
+        except Exception as e:  # noqa: BLE001
+            print(f"::warning title=SIM2 {url.rsplit('/', 1)[-1]}::{type(e).__name__} {e}"[:500])
+    if data is None:
+        raise RuntimeError("aucun fichier SIM2 lisible")
+    sel = np.arange(len(grid))
     xy = grid[sel] * 100
     lon, lat = TO_WGS.transform(xy[:, 0], xy[:, 1])
     np.savez_compressed(a.out, x=xy[:, 0], y=xy[:, 1], lat=lat, lon=lon, day0=str(DAY0), data=data, vars=VARS)
+    print(f"::notice title=SIM2::{len(grid)} mailles ; jours couverts {(np.isfinite(data[:, :, 1]).any(0)).sum()}")
+
+
+def _read_file(url, work, occ, nd, grid, cell_index, data):
+    fh, path = stream(url, work)
+    try:
+        with fh:
+            for chunk in pd.read_csv(fh, sep=";", chunksize=2_000_000, low_memory=False):
+                    chunk.columns = [c.strip().upper() for c in chunk.columns]
+                    if grid is None:
+                        # grille régulière de 8 km (80 hm) : on recale les observations dessus
+                        x0 = float(chunk.LAMBX.iloc[0]) % 80
+                        y0 = float(chunk.LAMBY.iloc[0]) % 80
+                        ox, oy = TO_L2E.transform(occ.lon.to_numpy(), occ.lat.to_numpy())
+                        gx = x0 + 80 * np.round((ox / 100 - x0) / 80)
+                        gy = y0 + 80 * np.round((oy / 100 - y0) / 80)
+                        grid = np.unique(np.c_[gx, gy], axis=0)
+                        cell_index = {(float(x), float(y)): k for k, (x, y) in enumerate(grid)}
+                        data = np.full((len(grid), nd, len(VARS)), np.nan, np.float32)
+                        print(f"::notice title=SIM2 grille::{len(grid)} mailles utiles (origine {x0}, {y0} hm)")
+                    keys = list(zip(chunk.LAMBX.to_numpy(float), chunk.LAMBY.to_numpy(float)))
+                    rows = np.array([cell_index.get(k, -1) for k in keys])
+                    m = rows >= 0
+                    if not m.any():
+                        continue
+                    c = chunk[m]
+                    dates = pd.to_datetime(c.DATE.astype(str), format="%Y%m%d").dt.date
+                    di = np.array([(d - DAY0).days for d in dates])
+                    ok = (di >= (START - DAY0).days) & (di < nd)
+                    r, di = rows[m][ok], di[ok]
+                    c = c[ok]
+                    data[r, di, 0] = (c.PRENEI_Q.to_numpy(float) + c.PRELIQ_Q.to_numpy(float))
+                    data[r, di, 1] = c.T_Q.to_numpy(float)
+                    data[r, di, 2] = c.TINF_H_Q.to_numpy(float)
+                    data[r, di, 3] = c.ETP_Q.to_numpy(float)
+    finally:
+        print(f"::notice title=SIM2 lu::{path.name}")
+        path.unlink(missing_ok=True)
+    return grid, cell_index, data
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    import traceback
+    try:
+        main()
+    except Exception as e:  # noqa: BLE001
+        print(f"::error title=SIM2::{type(e).__name__}: " + " | ".join(traceback.format_exc().splitlines()[-6:])[:1700])
+        sys.exit(1)
