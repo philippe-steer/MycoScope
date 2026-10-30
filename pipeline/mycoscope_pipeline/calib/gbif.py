@@ -30,6 +30,12 @@ TAXA = {
     "coulemelle": ["Macrolepiota procera"],
 }
 
+# Traceurs d'effort : polypores pérennes, visibles toute l'année. Leurs observations datées
+# mesurent les sorties des observateurs indépendamment des poussées de champignons.
+EFFORT = {"_effort": ["Fomes fomentarius", "Ganoderma applanatum", "Trametes versicolor", "Stereum hirsutum",
+                      "Daedaleopsis confragosa", "Fomitopsis betulina", "Phellinus igniarius",
+                      "Schizophyllum commune", "Fomitopsis pinicola", "Ganoderma adspersum"]}
+
 
 def get(url, params=None):
     for i in range(6):
@@ -73,7 +79,7 @@ def main():
     with open(out, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["species", "taxon", "gbif_id", "date", "lat", "lon", "uncert_m", "dataset", "basis"])
-        for sid, names in TAXA.items():
+        for sid, names in {**TAXA, **EFFORT}.items():
             ns = 0
             for name in names:
                 key = taxon_key(name)

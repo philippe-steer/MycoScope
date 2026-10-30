@@ -13,6 +13,10 @@ on:
         description: "Id d'un run précédent dont réutiliser observations et météo (saute GBIF et SIM2)"
         required: false
         default: ""
+      reuse_sim2:
+        description: "Id d'un run dont réutiliser seulement la météo SIM2 (observations retéléchargées)"
+        required: false
+        default: ""
       lam:
         description: "Poids de la pénalité vers l'a priori"
         required: false
@@ -39,7 +43,7 @@ jobs:
 
   sim2:
     needs: occurrences
-    if: inputs.reuse_run == ''
+    if: inputs.reuse_run == '' && inputs.reuse_sim2 == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -61,7 +65,7 @@ jobs:
 
   fit:
     needs: [occurrences, sim2]
-    if: always() && (inputs.reuse_run != '' || needs.sim2.result == 'success')
+    if: always() && (inputs.reuse_run != '' || needs.sim2.result == 'success' || (inputs.reuse_sim2 != '' && needs.occurrences.result == 'success'))
     runs-on: ubuntu-24.04
     timeout-minutes: 340
     steps:
@@ -75,6 +79,11 @@ jobs:
         with:
           path: ${{ runner.temp }}
           merge-multiple: true
+      - name: Météo SIM2 d'un run précédent
+        if: inputs.reuse_sim2 != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh run download "${{ inputs.reuse_sim2 }}" -n sim2 -D "$RUNNER_TEMP"
       - name: Données d'un run précédent
         if: inputs.reuse_run != ''
         env:

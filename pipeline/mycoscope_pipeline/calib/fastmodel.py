@@ -160,7 +160,10 @@ def fruiting_batch(p, P, T, TN, E, DOY, ZG, ELEV, DM, idx):
 EPS = 0.02
 
 
-def case_control_loglik(F: np.ndarray) -> np.ndarray:
-    """log P(cas) avec P ∝ F + ε parmi {cas, témoins} ; F[:, 0] = cas."""
+def case_control_loglik(F: np.ndarray, W: np.ndarray | None = None) -> np.ndarray:
+    """log P(cas) avec P ∝ (F + ε)·effort parmi {cas, témoins} ; F[:, 0] = cas.
+    W : effort d'observation relatif de chaque jour (1 = uniforme)."""
     w = F + EPS
+    if W is not None:
+        w = w * W
     return np.log(w[:, 0] / w.sum(axis=1))

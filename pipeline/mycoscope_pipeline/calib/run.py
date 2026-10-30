@@ -85,6 +85,33 @@ def aspect_dz(px):
     return np.array(ASPECT_DZ)[px[:, 2] & 15]
 
 
+def effort_weights(cases_lat, cases_lon, cases_day, tr_lat, tr_lon, tr_day,
+                   radius_km: float = 100.0, half: int = 2, pseudo: float = 1.0):
+    """Effort relatif des jours cas/témoins : 1 + nombre de traceurs observés à moins de
+    radius_km et à ±half jours. Lignes sans aucun traceur → effort uniforme (1)."""
+    from collections import defaultdict
+    by_day = defaultdict(list)
+    for la, lo, d in zip(tr_lat, tr_lon, tr_day):
+        by_day[int(d)].append((la, lo))
+    by_day = {d: np.array(v) for d, v in by_day.items()}
+    W = np.ones((len(cases_day), len(F.OFFSETS)))
+    informative = np.zeros(len(cases_day), bool)
+    for i, (la, lo, d0) in enumerate(zip(cases_lat, cases_lon, cases_day)):
+        c = np.zeros(len(F.OFFSETS))
+        kx = 111.0 * np.cos(np.radians(la))
+        for j, off in enumerate(F.OFFSETS):
+            for dd in range(int(d0) + int(off) - half, int(d0) + int(off) + half + 1):
+                pts = by_day.get(dd)
+                if pts is None:
+                    continue
+                dist2 = ((pts[:, 0] - la) * 111.0) ** 2 + ((pts[:, 1] - lo) * kx) ** 2
+                c[j] += np.count_nonzero(dist2 < radius_km ** 2)
+        if c.sum() > 0:
+            W[i] = c + pseudo
+            informative[i] = True
+    return W, informative
+
+
 # ----------------------------------------------------------------------------- calage phéno
 def cv_scores(p0, data: F.PhenoData, years: np.ndarray, lam: float, k: int = 4):
     """Validation croisée par blocs d'années : score hors échantillon a priori vs calé."""
@@ -185,12 +212,17 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--lam", type=float, default=0.002)
     ap.add_argument("--species", default="")
+    ap.add_argument("--no-effort", action="store_true", help="ne pas pondérer par l'effort (traceurs)")
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
     from .sample import GroundWater, dem_box_means, dem_points, habitat_pixels
 
     species = load_species()
-    occ = load_occurrences(a.occ)
+    occ_all = load_occurrences(a.occ)
+    tracers = occ_all[occ_all.species.astype(str).str.startswith("_")]
+    occ = occ_all[~occ_all.species.astype(str).str.startswith("_")].reset_index(drop=True)
+    print(f"::notice title=Effort::{len(tracers)} observations de traceurs (polypores pérennes)")
+    tr_day = np.array([(d - dt.date(1999, 1, 1)).days for d in tracers.date])
     print(f"::notice title=Calage::{len(occ)} observations après nettoyage")
     sim = Sim2(a.sim2)
     elev = dem_points(occ.lat.to_numpy(), occ.lon.to_numpy())
@@ -223,6 +255,12 @@ def main():
         data, keep = phenology_arrays(occ.iloc[sub], sim, elev_eff[sub], zcell, dm0[sub]) if len(sub) else (None, [])
         row["n_obs"] = int((occ.species == sid).sum())
         row["n_pheno"] = 0 if data is None else len(data)
+        if data is not None and len(tracers) and not a.no_effort:
+            ok = occ.iloc[sub[keep]]
+            cday = np.array([(d - dt.date(1999, 1, 1)).days for d in ok.date])
+            data.W, inf = effort_weights(ok.lat.to_numpy(), ok.lon.to_numpy(), cday,
+                                         tracers.lat.to_numpy(), tracers.lon.to_numpy(), tr_day)
+            row["effort_info"] = float(inf.mean())
         if data is not None and len(data) >= MIN_OBS and (not only or sid in only):
             p0 = params_from_species(sp)
             years = np.array([occ.date.iloc[sub[k]].year for k in keep])
@@ -290,12 +328,14 @@ def report(results, gains, n, out: Path):
          "« VC » = validation croisée par blocs d'années : seul ce score décide de l'adoption des paramètres.", "",
          "**Habitat** : présences vs observations des autres espèces (groupe cible), pixels forestiers, "
          "AUC en validation croisée spatiale (blocs de 0,5°).", "",
-         "| Espèce | obs. | phéno | VC a priori | VC calé | délai (a priori → calé [IC 80 %]) | R₀ mm | habitat | AUC a priori | AUC calé |",
-         "|---|---|---|---|---|---|---|---|---|---|"]
+         "**Effort** : jours témoins pondérés par les observations de polypores pérennes (traceurs des sorties) "
+         "à moins de 100 km et ±2 jours ; « effort » = part des observations où ce poids est informatif.", "",
+         "| Espèce | obs. | phéno | effort | VC a priori | VC calé | délai (a priori → calé [IC 80 %]) | R₀ mm | habitat | AUC a priori | AUC calé |",
+         "|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in results:
         lag = r.get("lag")
         rain = r.get("rain")
-        L.append(f"| {r['nom']} | {r['n_obs']} | {r['n_pheno']} | {_f(r.get('cv_prior'))} | {_f(r.get('cv_fit'))} | "
+        L.append(f"| {r['nom']} | {r['n_obs']} | {r['n_pheno']} | {_f(r.get('effort_info'), 2)} | {_f(r.get('cv_prior'))} | {_f(r.get('cv_fit'))} | "
                  + (f"{lag[0]:.0f} → {lag[1]:.1f} [{lag[2]:.1f}–{lag[3]:.1f}]" if lag else "–") + " | "
                  + (f"{rain[0]:.0f} → {rain[1]:.0f} [{rain[2]:.0f}–{rain[3]:.0f}]" if rain else "–")
                  + f" | {r.get('n_habitat', '–')} | {_f(r.get('auc_prior'))} | {_f(r.get('auc_fit'))} |")
