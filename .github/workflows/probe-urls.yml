@@ -1,0 +1,25 @@
+name: Probe data URLs
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          for u in \
+            "https://infoterre.brgm.fr/formulaire/telechargement-cartes-geologiques-departementales-150-000-bd-charm-50" \
+            "https://infoterre.brgm.fr/node/454/done" \
+            "https://infoterre.brgm.fr/page/telechargement-cartes-geologiques" \
+            "https://infoterre.brgm.fr/telechargements/BDCharm50/" ; do
+            code=$(curl -sL -o page.html -w "%{http_code} %{url_effective}" -A "Mozilla/5.0" "$u")
+            echo "::notice title=GET::$u -> $code ($(wc -c < page.html) o)"
+            grep -oiE '(href|src|value|action)="[^"]*(zip|harm|charm|telecharg|download)[^"]*"' page.html | sort -u | head -40 | tr '\n' ' ' | cut -c1-3000 | sed 's/^/::notice title=links::/'; echo
+            grep -oiE 'name="[^"]+"' page.html | sort -u | head -30 | tr '\n' ' ' | sed 's/^/::notice title=fields::/'; echo
+          done
+          for c in 035 35; do
+            for t in "https://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_$c.zip" \
+                     "https://infoterre.brgm.fr/sites/default/files/telechargements/BDCharm50/GEO050K_HARM_$c.zip" \
+                     "https://infoterre.brgm.fr/telechargements/BDHarm50/GEO050K_HARM_$c.zip" \
+                     "http://infoterre.brgm.fr/telechargements/BDCharm50/GEO050K_HARM_$c.zip"; do
+              echo "::notice title=HEAD::$t -> $(curl -sIL -o /dev/null -w '%{http_code} %{url_effective}' -m 20 "$t")"
+            done
+          done
