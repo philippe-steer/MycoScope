@@ -28,10 +28,17 @@ def stations() -> list[dict]:
     out, page = [], 1
     since = (dt.date.today() - dt.timedelta(days=365)).isoformat()
     while True:
-        r = requests.get(f"{API}/stations", headers=UA, timeout=120, params={
-            "format": "json", "size": 5000, "page": page})
-        r.raise_for_status()
-        d = r.json()
+        for attempt in range(6):
+            try:
+                r = requests.get(f"{API}/stations", headers=UA, timeout=300, params={
+                    "format": "json", "size": 2000, "page": page})
+                r.raise_for_status()
+                d = r.json()
+                break
+            except requests.RequestException:
+                time.sleep(20 * (attempt + 1))
+        else:
+            raise RuntimeError(f"Hub'Eau stations page {page} inaccessible")
         if page == 1 and d.get("data"):
             ex = d["data"][0]
             print(f"::notice title=Hub'Eau stations::{d.get('count')} stations ; champs {sorted(ex)[:40]}")
@@ -50,9 +57,9 @@ def monthly_quantiles(code: str, keep: bool = False):
     start = (dt.date.today() - dt.timedelta(days=365 * YEARS)).isoformat()
     for attempt in range(3):
         try:
-            r = requests.get(f"{API}/chroniques", headers=UA, timeout=120, params={
+            r = requests.get(f"{API}/chroniques", headers=UA, params={
                 "code_bss": code, "date_debut_mesure": start, "size": 20000,
-                "fields": "date_mesure,niveau_nappe_eau"})
+                "fields": "date_mesure,niveau_nappe_eau"}, timeout=300)
             r.raise_for_status()
             data = r.json().get("data", [])
             break
@@ -84,7 +91,7 @@ def main():
     print(f"{len(st)} stations candidates")
     res = {}
     series = {}
-    with ThreadPoolExecutor(6) as ex:
+    with ThreadPoolExecutor(4) as ex:
         for s, r in zip(st, ex.map(lambda s: monthly_quantiles(s["code_bss"], keep=hist is not None), st)):
             if not r:
                 continue
