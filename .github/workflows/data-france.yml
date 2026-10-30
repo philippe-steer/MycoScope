@@ -50,6 +50,8 @@ jobs:
           cache-dependency-path: pipeline/requirements.txt
       - run: pip install -r pipeline/requirements.txt
       - name: Build ${{ matrix.dept }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd pipeline
           for i in 1 2 3; do

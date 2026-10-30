@@ -91,6 +91,36 @@ def load_bdforet(dep: str, work: Path):
 
 
 # ------------------------------------------------------------------ BD Charm-50
+CHARM_RELEASE = "sources-charm"   # release du dépôt contenant les GEO050K_HARM_XXX.zip
+
+
+def _fetch_charm(code: str, d: Path) -> bool:
+    """Archive départementale BD Charm-50, par ordre de préférence :
+    1. dossier local $MYCO_CHARM_DIR ; 2. release « sources-charm » du dépôt (gh, dans Actions) ;
+    3. site du BRGM (anciens liens, souvent refusés depuis 2026)."""
+    import os
+    import subprocess
+    name = f"GEO050K_HARM_{code}.zip"
+    local = os.environ.get("MYCO_CHARM_DIR")
+    if local and (Path(local) / name).exists():
+        zipfile.ZipFile(Path(local) / name).extractall(d)
+        return True
+    if os.environ.get("GH_TOKEN") and os.environ.get("GITHUB_REPOSITORY"):
+        r = subprocess.run(["gh", "release", "download", CHARM_RELEASE, "-R", os.environ["GITHUB_REPOSITORY"],
+                            "-p", name, "-D", str(d), "--clobber"], capture_output=True, text=True)
+        if r.returncode == 0 and (d / name).exists():
+            zipfile.ZipFile(d / name).extractall(d)
+            (d / name).unlink()
+            return True
+    try:
+        data = _get(CHARM_URL.format(code=code))
+        zipfile.ZipFile(io.BytesIO(data)).extractall(d)
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(f"::warning title=BD Charm {code}::{type(e).__name__} {e}"[:600])
+    return False
+
+
 def load_charm(dep: str, work: Path):
     import geopandas as gpd
     from .encoding import litho_class
@@ -99,12 +129,8 @@ def load_charm(dep: str, work: Path):
         d.mkdir(parents=True)
         codes = [dep.zfill(3)] + ([CHARM_ALIASES[dep]] if dep in CHARM_ALIASES else [])
         for c in codes:
-            try:
-                data = _get(CHARM_URL.format(code=c))
-                zipfile.ZipFile(io.BytesIO(data)).extractall(d)
+            if _fetch_charm(c, d):
                 break
-            except Exception as e:  # noqa: BLE001
-                print(f"::warning title=BD Charm {dep}::{c}: {type(e).__name__} {e}"[:900])
     shp = [p for p in d.rglob("*.shp") if "S_FGEOL" in p.name.upper()]
     if not shp:
         names = [p.name for p in d.rglob("*")][:15]
