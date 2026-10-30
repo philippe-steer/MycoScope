@@ -17,11 +17,17 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install numpy requests
-      - run: cd pipeline && python -m mycoscope_pipeline.piezo ../app/src/main/assets/piezo_stats.json
+      - run: cd pipeline && python -m mycoscope_pipeline.piezo ../app/src/main/assets/piezo_stats.json "$RUNNER_TEMP/piezo_history.npz"
+      - name: Historique pour le calage (release sources-piezo)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view sources-piezo >/dev/null 2>&1 || gh release create sources-piezo --title "Historique des nappes (Hub'Eau)" --notes "Niveaux journaliers des piézomètres actifs, pour le calage de MycoScope."
+          gh release upload sources-piezo "$RUNNER_TEMP/piezo_history.npz" --clobber
       - name: Commit
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add app/src/main/assets/piezo_stats.json
           git diff --cached --quiet || git commit -m "Mise à jour des statistiques des nappes (Hub'Eau)"
-          git push
+          git pull --rebase -q && git push
