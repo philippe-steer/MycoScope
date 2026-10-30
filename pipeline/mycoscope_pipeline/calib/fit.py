@@ -27,7 +27,7 @@ SCALE = {"t0": 2.0, "t1": 2.0, "t2": 2.0, "t3": 2.0, "lag_days": 3.0, "lag_sd": 
 def bounds_for(p0: np.ndarray):
     b = {
         "t0": (p0[2] - 6, p0[2] + 6), "t1": (p0[3] - 6, p0[3] + 6), "t2": (p0[4] - 6, p0[4] + 6),
-        "t3": (p0[5] - 6, p0[5] + 6), "lag_days": (3, 25), "lag_sd": (1, 8), "rain_ref_mm": (5, 80),
+        "t3": (p0[5] - 6, p0[5] + 6), "lag_days": (3, 35), "lag_sd": (1, 10), "rain_ref_mm": (5, 80),
         "m0": (0.0, 0.6), "m1": (0.1, 0.85), "cold_shock": (0.0, 0.8), "persistence_days": (2, 25),
     }
     return [b[k] for k in FREE]
@@ -67,7 +67,7 @@ def score(p, data: PhenoData) -> float:
     return float(case_control_loglik(data.F(p)).mean() + np.log(len(OFFSETS)))
 
 
-def fit_phenology(p0: np.ndarray, data: PhenoData, lam: float = 0.02, seed: int = 0, maxiter: int = 60):
+def fit_phenology(p0: np.ndarray, data: PhenoData, lam: float = 0.002, seed: int = 0, maxiter: int = 80):
     theta0 = np.array([p0[PNAMES.index(k)] for k in FREE])
     sc = np.array([SCALE[k] for k in FREE])
 
@@ -76,7 +76,7 @@ def fit_phenology(p0: np.ndarray, data: PhenoData, lam: float = 0.02, seed: int 
         ll = case_control_loglik(data.F(p)).mean()
         return -ll + lam * np.sum(((theta - theta0) / sc) ** 2)
 
-    res = differential_evolution(obj, bounds_for(p0), seed=seed, maxiter=maxiter, popsize=12, tol=1e-6,
+    res = differential_evolution(obj, bounds_for(p0), seed=seed, maxiter=maxiter, popsize=15, tol=1e-7, mutation=(0.5, 1.0),
                                  polish=False, init="sobol", x0=np.clip(theta0, *np.array(bounds_for(p0)).T))
     res2 = minimize(obj, res.x, method="Nelder-Mead", options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-6})
     best = res2.x if res2.fun < res.fun else res.x

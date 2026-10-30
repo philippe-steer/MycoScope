@@ -9,12 +9,21 @@ on:
         description: "Espèces à caler (ids séparés par des virgules) ; vide = toutes"
         required: false
         default: ""
+      reuse_run:
+        description: "Id d'un run précédent dont réutiliser observations et météo (saute GBIF et SIM2)"
+        required: false
+        default: ""
+      lam:
+        description: "Poids de la pénalité vers l'a priori"
+        required: false
+        default: "0.002"
 
 permissions:
   contents: write
 
 jobs:
   occurrences:
+    if: inputs.reuse_run == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -30,6 +39,7 @@ jobs:
 
   sim2:
     needs: occurrences
+    if: inputs.reuse_run == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -51,6 +61,7 @@ jobs:
 
   fit:
     needs: [occurrences, sim2]
+    if: always() && (inputs.reuse_run != '' || needs.sim2.result == 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 340
     steps:
@@ -60,9 +71,18 @@ jobs:
           python-version: "3.12"
       - run: pip install -r pipeline/requirements.txt pytest
       - uses: actions/download-artifact@v4
+        if: inputs.reuse_run == ''
         with:
           path: ${{ runner.temp }}
           merge-multiple: true
+      - name: Données d'un run précédent
+        if: inputs.reuse_run != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download "${{ inputs.reuse_run }}" -n occurrences -D "$RUNNER_TEMP"
+          gh run download "${{ inputs.reuse_run }}" -n sim2 -D "$RUNNER_TEMP"
+          ls -la "$RUNNER_TEMP"
       - name: Couches et nappes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -75,7 +95,7 @@ jobs:
           ARGS="--occ $RUNNER_TEMP/occurrences.csv --sim2 $RUNNER_TEMP/sim2.npz --out ../calibration"
           [ -f "$RUNNER_TEMP/france.pmtiles" ] && ARGS="$ARGS --pmtiles $RUNNER_TEMP/france.pmtiles"
           [ -f "$RUNNER_TEMP/piezo_history.npz" ] && ARGS="$ARGS --piezo $RUNNER_TEMP/piezo_history.npz"
-          python -m mycoscope_pipeline.calib.run $ARGS --species "${{ inputs.species }}"
+          python -m mycoscope_pipeline.calib.run $ARGS --species "${{ inputs.species }}" --lam "${{ inputs.lam || '0.002' }}"
       - name: Branche à relire
         run: |
           cp calibration/species_calibrated.json app/src/main/assets/species.json

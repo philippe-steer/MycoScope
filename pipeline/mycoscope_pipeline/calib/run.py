@@ -183,7 +183,7 @@ def main():
     ap.add_argument("--pmtiles")
     ap.add_argument("--piezo")
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--lam", type=float, default=0.02)
+    ap.add_argument("--lam", type=float, default=0.002)
     ap.add_argument("--species", default="")
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)

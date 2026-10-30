@@ -29,7 +29,7 @@ def decode(b: bytes) -> np.ndarray:
 
 def encode(a: np.ndarray) -> bytes:
     buf = io.BytesIO()
-    Image.fromarray(a, "RGBA").save(buf, "WEBP", lossless=True, quality=100, method=6, exact=True)
+    Image.fromarray(a, "RGBA").save(buf, "WEBP", lossless=True, quality=80, method=4, exact=True)
     return buf.getvalue()
 
 

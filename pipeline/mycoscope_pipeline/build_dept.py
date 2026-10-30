@@ -45,7 +45,7 @@ def write_tiles(rgba: np.ndarray, grid, out: Path) -> int:
             continue
         p = out / str(grid.z) / str(x) / f"{y}.webp"
         p.parent.mkdir(parents=True, exist_ok=True)
-        Image.fromarray(tile, "RGBA").save(p, "WEBP", lossless=True, quality=100, method=6, exact=True)
+        Image.fromarray(tile, "RGBA").save(p, "WEBP", lossless=True, quality=80, method=4, exact=True)
         n += 1
     return n
 

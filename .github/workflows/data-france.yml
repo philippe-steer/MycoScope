@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       depts:
-        description: "Départements (ex. 35,22,29,56) ; vide = France métropolitaine"
+        description: "Départements (ex. 35,22,29,56) ; vide = France métropolitaine ; none = fusion seule"
         required: false
         default: ""
       extra_runs:
@@ -30,7 +30,9 @@ jobs:
     steps:
       - id: p
         run: |
-          if [ -n "${{ inputs.depts }}" ]; then
+          if [ "${{ inputs.depts }}" = "none" ]; then
+            echo 'depts=[]' >> "$GITHUB_OUTPUT"; exit 0
+          elif [ -n "${{ inputs.depts }}" ]; then
             L="${{ inputs.depts }}"
           else
             L=$(printf "%02d," $(seq 1 19) $(seq 21 95))"2A,2B"
@@ -39,6 +41,7 @@ jobs:
 
   dept:
     needs: plan
+    if: needs.plan.outputs.depts != '[]'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -71,8 +74,8 @@ jobs:
           compression-level: 0
 
   merge:
-    needs: dept
-    if: always()
+    needs: [plan, dept]
+    if: always() && needs.plan.result == 'success'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -81,6 +84,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r pipeline/requirements.txt
       - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.depts != '[]'
         with:
           pattern: tiles-*
           path: ${{ runner.temp }}/all
@@ -90,6 +94,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for id in $(echo "${{ inputs.extra_runs }}" | tr ',' ' '); do
+            mkdir -p "$RUNNER_TEMP/all"
             gh run download "$id" -p 'tiles-*' -D "$RUNNER_TEMP/prev_$id" || echo "::warning::run $id illisible"
             for d in "$RUNNER_TEMP/prev_$id"/tiles-*; do
               n=$(basename "$d")
