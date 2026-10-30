@@ -86,12 +86,30 @@ def main():
     print(f"::notice title=SIM2::{len(grid)} mailles ; jours couverts {(np.isfinite(data[:, :, 1]).any(0)).sum()}")
 
 
+def _col(cols, *pats):
+    for pat in pats:
+        for c in cols:
+            if re.fullmatch(pat, c):
+                return c
+    raise KeyError(f"colonne {pats} absente ; colonnes : {list(cols)[:30]}")
+
+
 def _read_file(url, work, occ, nd, grid, cell_index, data):
+    state = {"grid": grid, "cell_index": cell_index, "data": data}
     fh, path = stream(url, work)
     try:
         with fh:
             for chunk in pd.read_csv(fh, sep=";", chunksize=2_000_000, low_memory=False):
                     chunk.columns = [c.strip().upper() for c in chunk.columns]
+                    cx = _col(chunk.columns, r"LAMBX", r"X", r"LAMB_X")
+                    cy = _col(chunk.columns, r"LAMBY", r"Y", r"LAMB_Y")
+                    cd = _col(chunk.columns, r"DATE", r"DATE_Q", r"AAAAMMJJ")
+                    cpl = _col(chunk.columns, r"PRELIQ_Q", r"PRELIQ", r"PRELIQ.*")
+                    cps = _col(chunk.columns, r"PRENEI_Q", r"PRENEI", r"PRENEI.*")
+                    ct = _col(chunk.columns, r"T_Q", r"T", r"TMOY.*", r"T_MOY.*")
+                    ctn = _col(chunk.columns, r"TINF_H_Q", r"TINF_H", r"TINF.*", r"TN.*")
+                    ce = _col(chunk.columns, r"ETP_Q", r"ETP", r"ETP.*")
+                    chunk = chunk.rename(columns={cx: "LAMBX", cy: "LAMBY", cd: "DATE"})
                     if grid is None:
                         # grille régulière de 8 km (80 hm) : on recale les observations dessus
                         x0 = float(chunk.LAMBX.iloc[0]) % 80
@@ -103,25 +121,28 @@ def _read_file(url, work, occ, nd, grid, cell_index, data):
                         cell_index = {(float(x), float(y)): k for k, (x, y) in enumerate(grid)}
                         data = np.full((len(grid), nd, len(VARS)), np.nan, np.float32)
                         print(f"::notice title=SIM2 grille::{len(grid)} mailles utiles (origine {x0}, {y0} hm)")
+                        state["grid"], state["cell_index"], state["data"] = grid, cell_index, data
                     keys = list(zip(chunk.LAMBX.to_numpy(float), chunk.LAMBY.to_numpy(float)))
                     rows = np.array([cell_index.get(k, -1) for k in keys])
                     m = rows >= 0
                     if not m.any():
                         continue
                     c = chunk[m]
-                    dates = pd.to_datetime(c.DATE.astype(str), format="%Y%m%d").dt.date
+                    dates = pd.to_datetime(c.DATE.astype(str).str.replace("-", "").str[:8], format="%Y%m%d").dt.date
                     di = np.array([(d - DAY0).days for d in dates])
                     ok = (di >= (START - DAY0).days) & (di < nd)
                     r, di = rows[m][ok], di[ok]
                     c = c[ok]
-                    data[r, di, 0] = (c.PRENEI_Q.to_numpy(float) + c.PRELIQ_Q.to_numpy(float))
-                    data[r, di, 1] = c.T_Q.to_numpy(float)
-                    data[r, di, 2] = c.TINF_H_Q.to_numpy(float)
-                    data[r, di, 3] = c.ETP_Q.to_numpy(float)
+                    data[r, di, 0] = (c[cps].to_numpy(float) + c[cpl].to_numpy(float))
+                    data[r, di, 1] = c[ct].to_numpy(float)
+                    data[r, di, 2] = c[ctn].to_numpy(float)
+                    data[r, di, 3] = c[ce].to_numpy(float)
+                    state["grid"], state["cell_index"], state["data"] = grid, cell_index, data
+    except Exception as e:  # noqa: BLE001
+        print(f"::warning title=SIM2 {path.name}::{type(e).__name__} {e}"[:700])
     finally:
-        print(f"::notice title=SIM2 lu::{path.name}")
         path.unlink(missing_ok=True)
-    return grid, cell_index, data
+    return state["grid"], state["cell_index"], state["data"]
 
 
 if __name__ == "__main__":
