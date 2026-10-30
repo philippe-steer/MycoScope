@@ -5,15 +5,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          probe() {
-            code=$(curl -sL -o page.html -w "%{http_code} %{url_effective}" -A "Mozilla/5.0" -m 30 "$1")
-            echo "::notice title=GET::$1 -> $code ($(wc -c < page.html) o)"
-            grep -oiE 'href="[^"]*"' page.html | grep -iE "$2" | sort -u | head -60 | tr '\n' ' ' | cut -c1-3500 | sed 's/^/::notice title=links::/'; echo
-          }
-          probe "https://infoterre.brgm.fr/" "geolog|telecharg|charm|harm|donn|download|carte"
-          probe "https://www.brgm.fr/fr/donnees" "geolog|telecharg|charm|harm|download|carte"
-          probe "https://infoterre.brgm.fr/donnees-et-services" "geolog|telecharg|charm|harm|download|carte"
-          for p in $(grep -oiE 'href="[^"]*"' page.html | grep -iE "telecharg|charm" | sed 's/href="//;s/"$//' | sort -u | head -5); do
-            case "$p" in http*) u="$p";; *) u="https://infoterre.brgm.fr$p";; esac
-            probe "$u" "zip|charm|harm|telecharg|download"
+          for u in "https://geoservices.brgm.fr/geologie?SERVICE=WFS&REQUEST=GetCapabilities&VERSION=2.0.0" \
+                   "https://mapsref.brgm.fr/wxs/referentiel/geologie?SERVICE=WFS&REQUEST=GetCapabilities" \
+                   "https://data.geopf.fr/telechargement/capabilities?limit=500" ; do
+            code=$(curl -sL -o cap.xml -w "%{http_code}" -m 60 "$u")
+            echo "::notice title=CAP::$u -> $code ($(wc -c < cap.xml) o)"
+            grep -oiE '<(wfs:)?Name>[^<]+</(wfs:)?Name>' cap.xml | sed 's/<[^>]*>//g' | sort -u | tr '\n' ' ' | cut -c1-3500 | sed 's/^/::notice title=types::/'; echo
+            grep -oiE '<title>[^<]*(geol|charm|harm|BRGM)[^<]*</title>' cap.xml | sort -u | head -30 | tr '\n' ' ' | cut -c1-2000 | sed 's/^/::notice title=titles::/'; echo
           done
