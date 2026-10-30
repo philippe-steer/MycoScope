@@ -1,0 +1,1096 @@
+{
+ "version": 1,
+ "_doc": "Paramètres par espèce. Habitat statique = hôte × géologie × pH × altitude ; fructification = saison × température du sol × pluie décalée × humidité du sol × gel. Voir DESIGN.md. Les classes de forêt et de géologie sont définies dans encoding (pipeline) / Encoding.kt (appli). Une classe d'hôte absente vaut 0, sauf les classes mixtes/ouvertes déduites automatiquement (voir DESIGN.md §3.2). Une classe géologique absente vaut litho_default.",
+ "species": [
+  {
+   "id": "cepe_bordeaux",
+   "name": {
+    "fr": "Cèpe de Bordeaux",
+    "en": "Penny bun"
+   },
+   "latin": "Boletus edulis",
+   "color": "#8B5A2B",
+   "habitat": {
+    "hosts": {
+     "hetre": 0.58,
+     "chene": 0.7,
+     "chataignier": 1.0,
+     "sapin_epicea": 0.72,
+     "pin_sylvestre": 0.41,
+     "pin_noir": 0.34,
+     "pin_montagne": 0.83,
+     "pins_autres": 0.42,
+     "pin_maritime": 0.31,
+     "douglas": 0.46,
+     "meleze": 0.33,
+     "feuillus_autres": 0.62,
+     "chene_vert": 0.35,
+     "coniferes_autres": 0.91,
+     "robinier": 0.05,
+     "peupleraie": 0.05,
+     "feuillus_melange": 0.59,
+     "mixte_feuillus": 0.43,
+     "mixte_coniferes": 0.73,
+     "ouverte_feuillus": 0.75,
+     "ouverte_coniferes": 0.74,
+     "ouverte_mixte": 0.63,
+     "coupe": 0.68
+    },
+    "litho": {
+     "granite": 0.82,
+     "gneiss_micaschiste": 0.51,
+     "schiste_pelite": 0.59,
+     "sable_gres": 0.64,
+     "volcanique_acide": 0.31,
+     "moraine": 0.51,
+     "argile_limon": 0.73,
+     "volcanique_basique": 0.66,
+     "conglomerat_molasse": 0.45,
+     "marne": 0.51,
+     "calcaire": 0.38,
+     "alluvions": 1.0,
+     "tourbe": 0.36,
+     "ultrabasique": 0.7,
+     "evaporite": 0.53,
+     "autre": 0.78
+    },
+    "litho_default": 0.7,
+    "ph": [
+     3.8,
+     4.3,
+     6.0,
+     7.5
+    ],
+    "ph_floor": 0.4,
+    "elev": [
+     0,
+     150,
+     1500,
+     2100
+    ]
+   },
+   "fruiting": {
+    "season": [
+     160.0,
+     325.0
+    ],
+    "tsoil": [
+     6.0,
+     12.3,
+     17.2,
+     24.1
+    ],
+    "lag_days": 14.5,
+    "lag_sd": 2.5,
+    "rain_ref_mm": 44.7,
+    "moisture": [
+     0.06,
+     0.52,
+     0.85,
+     0.99
+    ],
+    "frost_c": -2.0,
+    "cold_shock": 0.12,
+    "persistence_days": 17.3
+   },
+   "lookalikes": {
+    "fr": "Bolet amer (Tylopilus felleus) : réseau brun foncé sur le pied, pores rosés, chair très amère — non toxique mais gâche une poêlée. Goûter une miette crue et recracher."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 1859,
+    "pheno_cv_gain": 0.0043,
+    "source": "GBIF × SAFRAN-SIM2, branche calibration-2026-10-30",
+    "adopted": "phénologie",
+    "habitat_auc": 0.603
+   }
+  },
+  {
+   "id": "cepe_thermophile",
+   "name": {
+    "fr": "Cèpe d'été / tête de nègre",
+    "en": "Summer cep / bronze bolete"
+   },
+   "latin": "Boletus reticulatus, B. aereus",
+   "color": "#5C3A1E",
+   "habitat": {
+    "hosts": {
+     "chene": 1.0,
+     "chataignier": 0.54,
+     "hetre": 0.54,
+     "chene_vert": 0.42,
+     "feuillus_autres": 0.39,
+     "pin_maritime": 0.1,
+     "pins_autres": 0.08,
+     "pin_sylvestre": 0.11,
+     "feuillus_melange": 0.55,
+     "pin_noir": 0.06,
+     "sapin_epicea": 0.09,
+     "mixte_feuillus": 0.44,
+     "mixte_coniferes": 0.17,
+     "ouverte_feuillus": 0.3,
+     "ouverte_coniferes": 0.08,
+     "ouverte_mixte": 0.37,
+     "coupe": 0.07
+    },
+    "litho": {
+     "sable_gres": 0.59,
+     "granite": 0.46,
+     "gneiss_micaschiste": 1.0,
+     "schiste_pelite": 0.46,
+     "argile_limon": 0.41,
+     "volcanique_acide": 0.72,
+     "conglomerat_molasse": 0.44,
+     "calcaire": 0.53,
+     "marne": 0.53,
+     "alluvions": 0.52,
+     "tourbe": 0.14,
+     "volcanique_basique": 0.64,
+     "ultrabasique": 0.7,
+     "evaporite": 0.49,
+     "moraine": 0.8,
+     "autre": 0.44
+    },
+    "litho_default": 0.7,
+    "ph": [
+     3.8,
+     4.3,
+     6.2,
+     7.5
+    ],
+    "ph_floor": 0.4,
+    "elev": [
+     0,
+     0,
+     700,
+     1100
+    ]
+   },
+   "fruiting": {
+    "season": [
+     135.0,
+     300.0
+    ],
+    "tsoil": [
+     12.2,
+     16.5,
+     21.4,
+     25.9
+    ],
+    "lag_days": 15.6,
+    "lag_sd": 2.3,
+    "rain_ref_mm": 32.5,
+    "moisture": [
+     0.17,
+     0.48,
+     0.85,
+     0.99
+    ],
+    "frost_c": -1.0,
+    "cold_shock": 0.23,
+    "persistence_days": 9.9
+   },
+   "lookalikes": {
+    "fr": "Bolet Satan et bolets à pores rouges (toxiques) : pores rouges, chair bleuissante. Un vrai cèpe a des pores blancs à jaune-vert et une chair qui ne bleuit pas. Bolet amer : pores rosés, amer."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 1186,
+    "pheno_cv_gain": -0.0151,
+    "source": "GBIF × SAFRAN-SIM2, branche calibration-2026-10-30",
+    "adopted": "phénologie",
+    "habitat_auc": 0.644
+   }
+  },
+  {
+   "id": "cepe_pins",
+   "name": {
+    "fr": "Cèpe des pins",
+    "en": "Pine bolete"
+   },
+   "latin": "Boletus pinophilus",
+   "color": "#7A2E1F",
+   "habitat": {
+    "hosts": {
+     "pin_sylvestre": 1.0,
+     "sapin_epicea": 0.9,
+     "pin_noir": 0.8,
+     "pin_montagne": 0.7,
+     "pins_autres": 0.7,
+     "pin_maritime": 0.4,
+     "hetre": 0.4,
+     "chataignier": 0.3,
+     "douglas": 0.4,
+     "coniferes_autres": 0.6
+    },
+    "litho": {
+     "granite": 1.0,
+     "gneiss_micaschiste": 1.0,
+     "sable_gres": 1.0,
+     "schiste_pelite": 0.95,
+     "volcanique_acide": 0.95,
+     "moraine": 0.9,
+     "argile_limon": 0.6,
+     "volcanique_basique": 0.7,
+     "calcaire": 0.3,
+     "marne": 0.3,
+     "tourbe": 0.4
+    },
+    "litho_default": 0.6,
+    "ph": [
+     3.5,
+     4.0,
+     5.5,
+     6.8
+    ],
+    "ph_floor": 0.3,
+    "elev": [
+     100,
+     500,
+     1700,
+     2200
+    ]
+   },
+   "fruiting": {
+    "season": [
+     150.0,
+     310.0
+    ],
+    "tsoil": [
+     7.0,
+     9.7,
+     15.7,
+     22.6
+    ],
+    "lag_days": 12.0,
+    "lag_sd": 1.0,
+    "rain_ref_mm": 40.7,
+    "moisture": [
+     0.24,
+     0.56,
+     0.85,
+     0.99
+    ],
+    "frost_c": -2.0,
+    "cold_shock": 0.18,
+    "persistence_days": 11.4
+   },
+   "lookalikes": {
+    "fr": "Bolet amer (Tylopilus felleus) : pores rosés, réseau foncé, amer."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 233,
+    "pheno_cv_gain": 0.0407,
+    "habitat_auc": null
+   }
+  },
+  {
+   "id": "bolet_bai",
+   "name": {
+    "fr": "Bolet bai",
+    "en": "Bay bolete"
+   },
+   "latin": "Imleria badia",
+   "color": "#6B3F23",
+   "habitat": {
+    "hosts": {
+     "sapin_epicea": 1.0,
+     "pin_sylvestre": 0.9,
+     "pin_maritime": 0.7,
+     "douglas": 0.7,
+     "pins_autres": 0.7,
+     "pin_noir": 0.6,
+     "meleze": 0.5,
+     "coniferes_autres": 0.8,
+     "chataignier": 0.7,
+     "hetre": 0.6,
+     "chene": 0.6,
+     "feuillus_autres": 0.5
+    },
+    "litho": {
+     "granite": 1.0,
+     "gneiss_micaschiste": 1.0,
+     "sable_gres": 1.0,
+     "schiste_pelite": 1.0,
+     "volcanique_acide": 0.95,
+     "moraine": 0.9,
+     "tourbe": 0.7,
+     "argile_limon": 0.6,
+     "volcanique_basique": 0.6,
+     "calcaire": 0.2,
+     "marne": 0.25
+    },
+    "litho_default": 0.6,
+    "ph": [
+     3.3,
+     3.8,
+     5.3,
+     6.5
+    ],
+    "ph_floor": 0.25,
+    "elev": [
+     0,
+     100,
+     1500,
+     2000
+    ]
+   },
+   "fruiting": {
+    "season": [
+     200.0,
+     330.0
+    ],
+    "tsoil": [
+     7.0,
+     11.5,
+     15.1,
+     21.3
+    ],
+    "lag_days": 8.5,
+    "lag_sd": 1.0,
+    "rain_ref_mm": 39.9,
+    "moisture": [
+     0.19,
+     0.6,
+     0.9,
+     1.0
+    ],
+    "frost_c": -3.0,
+    "cold_shock": 0.02,
+    "persistence_days": 15.5
+   },
+   "lookalikes": {
+    "fr": "Peu de confusions dangereuses ; ses pores bleuissent au toucher, c'est normal. Écarter les bolets à pores rouges."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 1365,
+    "pheno_cv_gain": 0.1103,
+    "habitat_auc": 0.647
+   }
+  },
+  {
+   "id": "girolle",
+   "name": {
+    "fr": "Girolle",
+    "en": "Chanterelle"
+   },
+   "latin": "Cantharellus cibarius s.l.",
+   "color": "#E8A317",
+   "habitat": {
+    "hosts": {
+     "hetre": 1.0,
+     "chene": 1.0,
+     "chataignier": 0.9,
+     "sapin_epicea": 0.8,
+     "feuillus_autres": 0.7,
+     "pin_sylvestre": 0.6,
+     "pins_autres": 0.5,
+     "pin_maritime": 0.5,
+     "pin_noir": 0.5,
+     "douglas": 0.5,
+     "chene_vert": 0.6,
+     "coniferes_autres": 0.6
+    },
+    "litho": {
+     "granite": 1.0,
+     "gneiss_micaschiste": 1.0,
+     "schiste_pelite": 1.0,
+     "sable_gres": 1.0,
+     "volcanique_acide": 0.95,
+     "moraine": 0.9,
+     "argile_limon": 0.8,
+     "volcanique_basique": 0.8,
+     "calcaire": 0.5,
+     "marne": 0.5,
+     "alluvions": 0.5,
+     "tourbe": 0.4
+    },
+    "litho_default": 0.7,
+    "ph": [
+     3.5,
+     4.0,
+     6.0,
+     7.8
+    ],
+    "ph_floor": 0.4,
+    "elev": [
+     0,
+     0,
+     1500,
+     2000
+    ]
+   },
+   "fruiting": {
+    "season": [
+     160.0,
+     310.0
+    ],
+    "tsoil": [
+     8.5,
+     15.0,
+     19.0,
+     25.3
+    ],
+    "lag_days": 5.5,
+    "lag_sd": 2.7,
+    "rain_ref_mm": 29.6,
+    "moisture": [
+     0.11,
+     0.36,
+     0.85,
+     0.99
+    ],
+    "frost_c": -2.0,
+    "cold_shock": 0.0,
+    "persistence_days": 15.6
+   },
+   "lookalikes": {
+    "fr": "Fausse girolle (Hygrophoropsis aurantiaca) : vraies lames fines et fourchues, chair molle. Clitocybe de l'olivier (Omphalotus, toxique) : en touffes sur souches, lames vraies. La girolle a des plis épais, ramifiés, qui descendent sur le pied."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 1620,
+    "pheno_cv_gain": 0.0343,
+    "habitat_auc": 0.542
+   }
+  },
+  {
+   "id": "trompette",
+   "name": {
+    "fr": "Trompette de la mort",
+    "en": "Horn of plenty"
+   },
+   "latin": "Craterellus cornucopioides",
+   "color": "#2B2B2B",
+   "habitat": {
+    "hosts": {
+     "hetre": 1.0,
+     "chene": 0.8,
+     "feuillus_autres": 0.8,
+     "chataignier": 0.5,
+     "chene_vert": 0.3,
+     "sapin_epicea": 0.3,
+     "douglas": 0.1,
+     "pin_sylvestre": 0.1,
+     "pins_autres": 0.1,
+     "coniferes_autres": 0.2
+    },
+    "litho": {
+     "calcaire": 1.0,
+     "marne": 1.0,
+     "argile_limon": 0.9,
+     "alluvions": 0.8,
+     "conglomerat_molasse": 0.8,
+     "volcanique_basique": 0.8,
+     "schiste_pelite": 0.6,
+     "gneiss_micaschiste": 0.55,
+     "granite": 0.5,
+     "sable_gres": 0.5,
+     "tourbe": 0.3
+    },
+    "litho_default": 0.7,
+    "ph": [
+     4.5,
+     5.5,
+     7.8,
+     8.5
+    ],
+    "ph_floor": 0.35,
+    "elev": [
+     0,
+     0,
+     1200,
+     1600
+    ]
+   },
+   "fruiting": {
+    "season": [
+     210.0,
+     340.0
+    ],
+    "tsoil": [
+     6.9,
+     12.6,
+     13.4,
+     19.2
+    ],
+    "lag_days": 23.2,
+    "lag_sd": 1.2,
+    "rain_ref_mm": 46.2,
+    "moisture": [
+     0.26,
+     0.58,
+     0.92,
+     1.0
+    ],
+    "frost_c": -3.0,
+    "cold_shock": 0.01,
+    "persistence_days": 17.5
+   },
+   "lookalikes": {
+    "fr": "Pas de sosie toxique connu en France ; vérifier l'absence totale de lames (face externe lisse ou ridée) et la forme en entonnoir creux jusqu'à la base."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 773,
+    "pheno_cv_gain": 0.0676,
+    "habitat_auc": 0.639
+   }
+  },
+  {
+   "id": "chanterelle_tube",
+   "name": {
+    "fr": "Chanterelle en tube",
+    "en": "Winter chanterelle"
+   },
+   "latin": "Craterellus tubaeformis",
+   "color": "#9C7A3C",
+   "habitat": {
+    "hosts": {
+     "sapin_epicea": 1.0,
+     "pin_sylvestre": 0.77,
+     "pins_autres": 0.73,
+     "pin_maritime": 0.62,
+     "pin_noir": 0.47,
+     "douglas": 0.5,
+     "coniferes_autres": 0.8,
+     "meleze": 0.47,
+     "hetre": 0.69,
+     "chene": 0.31,
+     "chataignier": 0.86,
+     "feuillus_melange": 0.48,
+     "mixte_feuillus": 0.52,
+     "mixte_coniferes": 0.87,
+     "ouverte_feuillus": 0.25,
+     "ouverte_coniferes": 0.47,
+     "ouverte_mixte": 0.8,
+     "coupe": 0.2
+    },
+    "litho": {
+     "granite": 0.52,
+     "gneiss_micaschiste": 0.71,
+     "schiste_pelite": 0.76,
+     "sable_gres": 0.84,
+     "volcanique_acide": 0.42,
+     "moraine": 0.51,
+     "tourbe": 0.64,
+     "argile_limon": 1.0,
+     "volcanique_basique": 0.36,
+     "calcaire": 0.62,
+     "marne": 0.5,
+     "alluvions": 0.58,
+     "ultrabasique": 0.6,
+     "conglomerat_molasse": 0.59,
+     "evaporite": 0.51,
+     "autre": 0.48
+    },
+    "litho_default": 0.6,
+    "ph": [
+     3.3,
+     3.8,
+     5.5,
+     6.8
+    ],
+    "ph_floor": 0.3,
+    "elev": [
+     0,
+     200,
+     1600,
+     2000
+    ]
+   },
+   "fruiting": {
+    "season": [
+     235.0,
+     360.0
+    ],
+    "tsoil": [
+     2.2,
+     5.3,
+     13.6,
+     17.6
+    ],
+    "lag_days": 9.5,
+    "lag_sd": 5.0,
+    "rain_ref_mm": 33.5,
+    "moisture": [
+     0.24,
+     0.55,
+     0.95,
+     1.0
+    ],
+    "frost_c": -5.0,
+    "cold_shock": 0.0,
+    "persistence_days": 18.4
+   },
+   "lookalikes": {
+    "fr": "Pied creux, plis espacés (pas de vraies lames). Ne pas confondre avec de petits cortinaires bruns à lames (dont certains mortels)."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 1105,
+    "pheno_cv_gain": 0.0336,
+    "habitat_auc": 0.632
+   }
+  },
+  {
+   "id": "chanterelle_jaunissante",
+   "name": {
+    "fr": "Chanterelle jaunissante",
+    "en": "Yellow foot"
+   },
+   "latin": "Craterellus lutescens",
+   "color": "#D9902B",
+   "habitat": {
+    "hosts": {
+     "pin_sylvestre": 1.0,
+     "pin_noir": 0.9,
+     "pins_autres": 0.8,
+     "sapin_epicea": 0.9,
+     "pin_montagne": 0.7,
+     "coniferes_autres": 0.8,
+     "hetre": 0.3,
+     "chene": 0.2
+    },
+    "litho": {
+     "calcaire": 1.0,
+     "marne": 1.0,
+     "tourbe": 0.8,
+     "argile_limon": 0.7,
+     "alluvions": 0.7,
+     "moraine": 0.7,
+     "granite": 0.35,
+     "gneiss_micaschiste": 0.35,
+     "schiste_pelite": 0.4,
+     "sable_gres": 0.4
+    },
+    "litho_default": 0.6,
+    "ph": [
+     5.0,
+     6.0,
+     8.0,
+     8.6
+    ],
+    "ph_floor": 0.3,
+    "elev": [
+     0,
+     300,
+     1500,
+     1900
+    ]
+   },
+   "fruiting": {
+    "season": [
+     240.0,
+     350.0
+    ],
+    "tsoil": [
+     -0.8,
+     5.1,
+     15.1,
+     15.5
+    ],
+    "lag_days": 6.4,
+    "lag_sd": 2.1,
+    "rain_ref_mm": 45.3,
+    "moisture": [
+     0.29,
+     0.65,
+     0.97,
+     1.0
+    ],
+    "frost_c": -4.0,
+    "cold_shock": 0.0,
+    "persistence_days": 18.8
+   },
+   "lookalikes": {
+    "fr": "Plis presque absents, pied jaune-orangé creux. Écarter tout champignon à lames vraies."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 257,
+    "pheno_cv_gain": 0.0702,
+    "habitat_auc": null
+   }
+  },
+  {
+   "id": "pied_mouton",
+   "name": {
+    "fr": "Pied de mouton",
+    "en": "Hedgehog mushroom"
+   },
+   "latin": "Hydnum repandum, H. rufescens",
+   "color": "#E3C08D",
+   "habitat": {
+    "hosts": {
+     "hetre": 1.0,
+     "chene": 0.9,
+     "sapin_epicea": 0.85,
+     "chataignier": 0.8,
+     "feuillus_autres": 0.8,
+     "pin_sylvestre": 0.75,
+     "pins_autres": 0.7,
+     "pin_noir": 0.7,
+     "pin_maritime": 0.6,
+     "douglas": 0.6,
+     "coniferes_autres": 0.7,
+     "chene_vert": 0.6,
+     "meleze": 0.5
+    },
+    "litho": {
+     "calcaire": 1.0,
+     "marne": 1.0,
+     "argile_limon": 0.95,
+     "granite": 0.85,
+     "gneiss_micaschiste": 0.85,
+     "schiste_pelite": 0.9,
+     "sable_gres": 0.8,
+     "volcanique_basique": 0.9,
+     "volcanique_acide": 0.85,
+     "alluvions": 0.8,
+     "tourbe": 0.4
+    },
+    "litho_default": 0.85,
+    "ph": [
+     3.8,
+     4.5,
+     8.0,
+     8.6
+    ],
+    "ph_floor": 0.5,
+    "elev": [
+     0,
+     0,
+     1600,
+     2000
+    ]
+   },
+   "fruiting": {
+    "season": [
+     220.0,
+     350.0
+    ],
+    "tsoil": [
+     1.7,
+     6.1,
+     13.8,
+     21.1
+    ],
+    "lag_days": 13.5,
+    "lag_sd": 6.5,
+    "rain_ref_mm": 19.3,
+    "moisture": [
+     0.15,
+     0.43,
+     0.92,
+     1.0
+    ],
+    "frost_c": -4.0,
+    "cold_shock": 0.0,
+    "persistence_days": 18.4
+   },
+   "lookalikes": {
+    "fr": "Aiguillons sous le chapeau (pas de lames ni de tubes) : peu de confusions dangereuses. Les hydnes amers (Sarcodon) sont simplement immangeables."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 1797,
+    "pheno_cv_gain": 0.0407,
+    "habitat_auc": 0.539
+   }
+  },
+  {
+   "id": "lactaire_delicieux",
+   "name": {
+    "fr": "Lactaire délicieux / sanguin",
+    "en": "Saffron milk cap"
+   },
+   "latin": "Lactarius deliciosus, L. sanguifluus, L. deterrimus",
+   "color": "#E0672E",
+   "habitat": {
+    "hosts": {
+     "pin_sylvestre": 0.69,
+     "pin_noir": 0.74,
+     "pin_alep": 0.9,
+     "pin_maritime": 1.0,
+     "pins_autres": 0.73,
+     "pin_montagne": 0.63,
+     "sapin_epicea": 0.52,
+     "coniferes_autres": 0.72,
+     "chene_vert": 0.09,
+     "hetre": 0.09,
+     "feuillus_melange": 0.08,
+     "mixte_feuillus": 0.38,
+     "mixte_coniferes": 0.54,
+     "ouverte_feuillus": 0.1,
+     "ouverte_coniferes": 0.54,
+     "ouverte_mixte": 0.79,
+     "coupe": 0.19
+    },
+    "litho": {
+     "calcaire": 0.91,
+     "marne": 0.63,
+     "sable_gres": 0.63,
+     "argile_limon": 0.82,
+     "conglomerat_molasse": 0.54,
+     "moraine": 0.47,
+     "granite": 0.52,
+     "gneiss_micaschiste": 0.44,
+     "schiste_pelite": 1.0,
+     "alluvions": 0.63,
+     "volcanique_basique": 0.56,
+     "volcanique_acide": 0.9,
+     "tourbe": 0.59,
+     "ultrabasique": 0.8,
+     "evaporite": 0.55,
+     "autre": 0.71
+    },
+    "litho_default": 0.8,
+    "ph": [
+     4.0,
+     5.5,
+     8.2,
+     8.8
+    ],
+    "ph_floor": 0.4,
+    "elev": [
+     0,
+     0,
+     1600,
+     2000
+    ]
+   },
+   "fruiting": {
+    "season": [
+     240.0,
+     345.0
+    ],
+    "tsoil": [
+     7.0,
+     11.9,
+     11.9,
+     21.1
+    ],
+    "lag_days": 14.5,
+    "lag_sd": 4.4,
+    "rain_ref_mm": 41.4,
+    "moisture": [
+     0.23,
+     0.54,
+     0.9,
+     1.0
+    ],
+    "frost_c": -3.0,
+    "cold_shock": 0.0,
+    "persistence_days": 15.6
+   },
+   "lookalikes": {
+    "fr": "Lait orange-carotte ou rouge vineux. Le lactaire à toison (L. torminosus, toxique) a un lait BLANC et une marge laineuse."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 1215,
+    "pheno_cv_gain": 0.0788,
+    "habitat_auc": 0.716
+   }
+  },
+  {
+   "id": "morille",
+   "name": {
+    "fr": "Morille",
+    "en": "Morel"
+   },
+   "latin": "Morchella spp.",
+   "color": "#A88552",
+   "experimental": true,
+   "habitat": {
+    "hosts": {
+     "peupleraie": 0.9,
+     "feuillus_autres": 0.8,
+     "feuillus_melange": 0.7,
+     "chene": 0.4,
+     "hetre": 0.3,
+     "robinier": 0.4,
+     "sapin_epicea": 0.4,
+     "coniferes_autres": 0.3,
+     "open": 0.25,
+     "lande": 0.2,
+     "coupe": 0.5
+    },
+    "litho": {
+     "calcaire": 1.0,
+     "marne": 1.0,
+     "alluvions": 1.0,
+     "argile_limon": 0.8,
+     "conglomerat_molasse": 0.8,
+     "volcanique_basique": 0.7,
+     "moraine": 0.7,
+     "granite": 0.3,
+     "gneiss_micaschiste": 0.3,
+     "schiste_pelite": 0.35,
+     "sable_gres": 0.4,
+     "tourbe": 0.3
+    },
+    "litho_default": 0.6,
+    "ph": [
+     5.5,
+     6.5,
+     8.2,
+     8.8
+    ],
+    "ph_floor": 0.3,
+    "elev": [
+     0,
+     0,
+     1500,
+     2000
+    ]
+   },
+   "fruiting": {
+    "season": [
+     60.0,
+     165.0
+    ],
+    "tsoil": [
+     4.1,
+     9.3,
+     9.3,
+     12.0
+    ],
+    "lag_days": 6.7,
+    "lag_sd": 1.4,
+    "rain_ref_mm": 22.6,
+    "moisture": [
+     0.31,
+     0.52,
+     0.9,
+     1.0
+    ],
+    "frost_c": -4.0,
+    "cold_shock": 0.0,
+    "persistence_days": 14.8
+   },
+   "lookalikes": {
+    "fr": "Gyromitre (fausse morille, potentiellement mortelle) : chapeau cérébriforme sans alvéoles, intérieur cloisonné. Une morille est entièrement creuse d'une seule pièce. Toujours bien cuire : crue, elle est toxique."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 485,
+    "pheno_cv_gain": 0.1072,
+    "habitat_auc": null
+   }
+  },
+  {
+   "id": "coulemelle",
+   "name": {
+    "fr": "Coulemelle",
+    "en": "Parasol mushroom"
+   },
+   "latin": "Macrolepiota procera",
+   "color": "#B39B7A",
+   "experimental": true,
+   "habitat": {
+    "hosts": {
+     "herbace": 1.0,
+     "lande": 0.8,
+     "ouverte_feuillus": 0.55,
+     "ouverte_coniferes": 0.64,
+     "ouverte_mixte": 1.0,
+     "coupe": 0.48,
+     "open": 0.35,
+     "chene": 0.43,
+     "chataignier": 0.16,
+     "hetre": 0.21,
+     "feuillus_autres": 0.49,
+     "pin_maritime": 0.33,
+     "pins_autres": 0.33,
+     "pin_sylvestre": 0.26,
+     "chene_vert": 0.46,
+     "robinier": 0.08,
+     "feuillus_melange": 0.4,
+     "pin_noir": 0.15,
+     "pin_montagne": 0.08,
+     "sapin_epicea": 0.14,
+     "meleze": 0.12,
+     "douglas": 0.12,
+     "coniferes_autres": 0.06,
+     "mixte_feuillus": 0.26,
+     "mixte_coniferes": 0.22
+    },
+    "litho": {
+     "sable_gres": 0.57,
+     "granite": 0.62,
+     "schiste_pelite": 0.78,
+     "gneiss_micaschiste": 0.68,
+     "argile_limon": 0.68,
+     "calcaire": 0.5,
+     "marne": 0.3,
+     "alluvions": 0.69,
+     "volcanique_basique": 0.65,
+     "volcanique_acide": 0.35,
+     "tourbe": 0.57,
+     "ultrabasique": 0.85,
+     "conglomerat_molasse": 1.0,
+     "evaporite": 0.56,
+     "moraine": 0.8,
+     "autre": 0.8
+    },
+    "litho_default": 0.85,
+    "ph": [
+     3.8,
+     4.5,
+     8.0,
+     8.6
+    ],
+    "ph_floor": 0.6,
+    "elev": [
+     0,
+     0,
+     1400,
+     1900
+    ]
+   },
+   "fruiting": {
+    "season": [
+     185.0,
+     315.0
+    ],
+    "tsoil": [
+     4.7,
+     12.5,
+     15.7,
+     23.3
+    ],
+    "lag_days": 14.5,
+    "lag_sd": 2.7,
+    "rain_ref_mm": 41.9,
+    "moisture": [
+     0.04,
+     0.53,
+     0.85,
+     0.99
+    ],
+    "frost_c": -1.0,
+    "cold_shock": 0.01,
+    "persistence_days": 12.2
+   },
+   "lookalikes": {
+    "fr": "Petites lépiotes MORTELLES : ne cueillir que des chapeaux de plus de 10 cm, anneau double coulissant, pied chiné de brun. Amanite panthère : volve à la base du pied."
+   },
+   "calibration": {
+    "date": "2026-10-30",
+    "n_obs": 1844,
+    "pheno_cv_gain": 0.0087,
+    "source": "GBIF × SAFRAN-SIM2, branche calibration-2026-10-30",
+    "adopted": "phénologie",
+    "habitat_auc": 0.6
+   }
+  }
+ ],
+ "moisture_gains": {
+  "twi_gain": 0.025,
+  "gw_gain": -0.001
+ }
+}
