@@ -1,0 +1,17 @@
+name: Probe data URLs
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          curl -s -m 120 "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetCapabilities" -o w.xml
+          echo "::notice title=wmts::$(wc -c < w.xml) o"
+          grep -oE '<ows:Identifier>[^<]*(FORE|ONF|PUBLI|DOMAN)[^<]*</ows:Identifier>' w.xml | sort -u | tr '\n' ' ' | cut -c1-2000 | sed 's/^/::notice title=wmts layers::/'; echo
+          curl -s -m 120 "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&REQUEST=GetCapabilities" -o v.xml
+          echo "::notice title=wms-v::$(wc -c < v.xml) o"
+          grep -oE '<Name>[^<]*(FORE|ONF|PUBLI|DOMAN|foret)[^<]*</Name>' v.xml | sort -u | tr '\n' ' ' | cut -c1-2000 | sed 's/^/::notice title=wms-v layers::/'; echo
+          curl -s -m 120 "https://data.geopf.fr/wms-r/wms?SERVICE=WMS&REQUEST=GetCapabilities" -o r.xml
+          grep -oE '<Name>[^<]*(FORE|ONF|PUBLI|DOMAN|foret)[^<]*</Name>' r.xml | sort -u | tr '\n' ' ' | cut -c1-2000 | sed 's/^/::notice title=wms-r layers::/'; echo
+          curl -sL -m 120 "https://geo-onf.opendata.arcgis.com/api/search/v1/collections/dataset/items?q=forets%20publiques&limit=10" -o a.json
+          python3 -c "import json;d=json.load(open('a.json'));[print('::notice title=onf::'+f['properties'].get('title','')+' | '+str(f['properties'].get('url',''))[:200]) for f in d.get('features',[])]" || head -c 300 a.json
