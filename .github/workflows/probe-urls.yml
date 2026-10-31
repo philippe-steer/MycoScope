@@ -5,23 +5,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          curl -s -m 120 "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetCapabilities" -o w.xml
-          python3 - <<'PY'
-          import re
-          s=open('w.xml').read()
-          i=s.find('<ows:Identifier>FORETS.PUBLIQUES</ows:Identifier>'); a=s.rfind('<Layer>',0,i); b=s.find('</Layer>',i)
-          blk=re.sub(r'\s+',' ',s[a:b])
-          blk=re.sub(r'<TileMatrixLimits>.*?</TileMatrixLimits>','',blk)
-          print('::notice title=layer::'+blk[:1800])
-          PY
-          # tuile z13 sur la forêt de Rennes (48.17 N, -1.55 E)
-          for z in 12 13 14; do
+          for z in 10 13; do
             read X Y < <(python3 -c "import math;z=$z;lat,lon=48.17,-1.55;n=2**z;print(int((lon+180)/360*n), int((1-math.asinh(math.tan(math.radians(lat)))/math.pi)/2*n))")
-            code=$(curl -s -m 60 -o t$z.png -w "%{http_code} %{content_type}" "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=FORETS.PUBLIQUES&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX=$z&TILEROW=$Y&TILECOL=$X&FORMAT=image/png")
-            echo "::notice title=tile z$z::$code $(wc -c < t$z.png) o ; $(python3 -c "from PIL import Image;im=Image.open('t$z.png').convert('RGBA');print(sorted(im.getcolors(100000) or [],reverse=True)[:5])" 2>&1 | head -c 400)"
+            code=$(curl -s -m 60 -o t$z.png -w "%{http_code} %{content_type}" "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=FORETS.PUBLIQUES&STYLE=FORETS%20PUBLIQUES%20ONF&TILEMATRIXSET=PM_3_16&TILEMATRIX=$z&TILEROW=$Y&TILECOL=$X&FORMAT=image/png")
+            echo "::notice title=tile z$z::$code $(wc -c < t$z.png) o ; $(python3 -c "from PIL import Image;im=Image.open('t$z.png').convert('RGBA');print(sorted(im.getcolors(100000) or [],reverse=True)[:6])" 2>&1 | tail -c 400)"
           done
-          # attributs (WMS vecteur, GetFeatureInfo au centre de la forêt de Rennes)
-          for L in FORETS.PUBLIQUES ONF.FORETS_PUBLIQUES; do
-            curl -s -m 60 "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=$L&QUERY_LAYERS=$L&CRS=EPSG:4326&BBOX=48.16,-1.57,48.18,-1.53&WIDTH=101&HEIGHT=101&I=50&J=50&INFO_FORMAT=application/json" -o fi.json
-            echo "::notice title=info $L::$(head -c 1500 fi.json | tr '\n' ' ')"
+          for P in "48.17,-1.55" "48.40,2.70" "45.20,4.10"; do
+            la=${P%,*}; lo=${P#*,}
+            curl -s -m 60 "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=FORETS.PUBLIQUES&QUERY_LAYERS=FORETS.PUBLIQUES&CRS=EPSG:4326&BBOX=$(python3 -c "print(f'{$la-0.01},{$lo-0.01},{$la+0.01},{$lo+0.01}')")&WIDTH=101&HEIGHT=101&I=50&J=50&INFO_FORMAT=application/json&FEATURE_COUNT=2" -o fi.json
+            echo "::notice title=attrs $P::$(python3 -c "import json;d=json.load(open('fi.json'));print([f.get('properties') for f in d.get('features',[])])" 2>&1 | head -c 900)"
           done
