@@ -14,6 +14,10 @@ class Store(ctx: Context) {
         get() = sp.getBoolean("topo", true)
         set(v) { sp.edit().putBoolean("topo", v).apply() }
 
+    var forests: Boolean
+        get() = sp.getBoolean("forests", false)
+        set(v) { sp.edit().putBoolean("forests", v).apply() }
+
     var habitatMode: Boolean
         get() = sp.getBoolean("habitat", false)
         set(v) { sp.edit().putBoolean("habitat", v).apply() }

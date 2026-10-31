@@ -78,12 +78,23 @@ fun trap(x: Double, a: Double, b: Double, c: Double, d: Double): Double {
 private fun DoubleArray.t(x: Double) = trap(x, this[0], this[1], this[2], this[3])
 
 class Species(o: JSONObject) {
+    private val src: String = o.toString()
     val id: String = o.getString("id")
     val nameFr: String = o.getJSONObject("name").getString("fr")
     val latin: String = o.optString("latin")
     val color: Int = (0xFF000000L or o.optString("color", "#8B5A2B").removePrefix("#").toLong(16)).toInt()
     val experimental: Boolean = o.optBoolean("experimental", false)
     val lookalikes: String = o.optJSONObject("lookalikes")?.optString("fr") ?: ""
+    /** Calage sur observations (null = paramètres a priori, connaissances naturalistes). */
+    val calibration: JSONObject? = o.optJSONObject("calibration")?.takeIf { it.optString("adopted").isNotBlank() }
+    val calibrated get() = calibration != null
+    val cvGain: Double get() = calibration?.optDouble("pheno_cv_gain", Double.NaN) ?: Double.NaN
+    val nObs: Int get() = calibration?.optInt("n_obs", 0) ?: 0
+    val hostsJson: JSONObject = o.getJSONObject("habitat").getJSONObject("hosts")
+    val lithoJson: JSONObject = o.getJSONObject("habitat").getJSONObject("litho")
+    val phRange: DoubleArray get() = phArr
+    val phFloor: Double = o.getJSONObject("habitat").optDouble("ph_floor", 0.4)
+    private val phArr: DoubleArray
 
     val hostT = DoubleArray(256)
     val lithoT = DoubleArray(32)
@@ -124,6 +135,7 @@ class Species(o: JSONObject) {
 
         val fl = hab.optDouble("ph_floor", 0.4)
         val ph = arr(hab, "ph")
+        phArr = ph
         for (c in 0 until 8) phT[c] = fl + (1 - fl) * ph.t(Enc.PH_CENTERS[c])
         phT[0] = (1 + fl) / 2
         elevR = arr(hab, "elev")
@@ -149,6 +161,18 @@ class Species(o: JSONObject) {
     fun habitat(forest: Int, litho: Int, phc: Int, elev: Double): Double {
         val e = if (elev.isNaN()) -9999.0 else elev
         return hostT[forest] * lithoT[litho and 31] * phT[phc and 7] * elevR.t(e)
+    }
+
+    /** Variante des paramètres de fructification (pour l'incertitude). */
+    fun variant(dLag: Double = 0.0, rainFactor: Double = 1.0, dT: Double = 0.0): Species {
+        val o = JSONObject(src)
+        val f = o.getJSONObject("fruiting")
+        f.put("lag_days", (lag + dLag).coerceAtLeast(1.0))
+        f.put("rain_ref_mm", rainRef * rainFactor)
+        val t = org.json.JSONArray()
+        tsoil.forEach { t.put(it + dT) }
+        f.put("tsoil", t)
+        return Species(o)
     }
 
     fun habitatPixel(c: Int): Double =
@@ -317,6 +341,27 @@ object Model {
             out[i] = prev
         }
         return out
+    }
+
+    /**
+     * Fourchette d'incertitude de l'indice de fructification : enveloppe min/max de variantes
+     * « une à la fois » — délai ±3 j, pluie de référence ×0,75 / ×1,33, température du sol ±1,5 °C,
+     * et pluie prévue (jours > today) ×0,5 / ×1,6. Renvoie (base, bas, haut).
+     */
+    fun envelope(sp: Species, w: DailyWeather, elev: Double, dm: Double, today: Int): Triple<DoubleArray, DoubleArray, DoubleArray> {
+        val base = fruiting(sp, w, elev, dm)
+        val lo = base.copyOf()
+        val hi = base.copyOf()
+        fun add(f: DoubleArray) {
+            for (i in f.indices) { if (f[i] < lo[i]) lo[i] = f[i]; if (f[i] > hi[i]) hi[i] = f[i] }
+        }
+        for (v in listOf(sp.variant(dLag = 3.0), sp.variant(dLag = -3.0), sp.variant(rainFactor = 1.33),
+            sp.variant(rainFactor = 0.75), sp.variant(dT = 1.5), sp.variant(dT = -1.5))) add(fruiting(v, w, elev, dm))
+        for (k in doubleArrayOf(0.5, 1.6)) {
+            val p = DoubleArray(w.n) { if (it > today) w.precip[it] * k else w.precip[it] }
+            add(fruiting(sp, DailyWeather(w.doy, p, w.tmean, w.tmin, w.et0, w.elevation), elev, dm))
+        }
+        return Triple(base, lo, hi)
     }
 
     /**
