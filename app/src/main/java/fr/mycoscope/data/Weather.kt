@@ -57,13 +57,17 @@ object WeatherGrid {
     const val TODAY = PAST
     private val SPACINGS = doubleArrayOf(0.125, 0.25, 0.5, 1.0)
     private const val VARS = "precipitation_sum,temperature_2m_mean,temperature_2m_min,et0_fao_evapotranspiration"
-    private const val PER_REQUEST = 40
+    // Open-Meteo gratuit : 600 appels/min, 5 000/h, 10 000/j ; 68 jours ≈ 5 appels par point.
+    private const val PER_REQUEST = 20
+    private const val PAUSE_MS = 2_500L
 
     lateinit var cacheRoot: File
+    @Volatile private var cooldownUntil = 0L
+    @Volatile private var cooldownReason = ""
     private val mem = HashMap<String, DailyWeather>()
 
     fun spacingFor(latSpan: Double, lonSpan: Double): Double {
-        val target = min(latSpan, lonSpan) / 5.0
+        val target = min(latSpan, lonSpan) / 3.0
         return SPACINGS.firstOrNull { it >= target } ?: SPACINGS.last()
     }
 
@@ -71,10 +75,13 @@ object WeatherGrid {
 
     private fun file(s: Double, i: Int, j: Int) = File(cacheRoot, "wx/${today()}/${s}_${i}_$j.json")
 
+    /** Valeurs manquantes écrites `null` : org.json refuse NaN (toString() renverrait null). */
+    private fun ja(a: DoubleArray) = JSONArray().also { j -> a.forEach { j.put(if (it.isFinite()) it else JSONObject.NULL) } }
+
     private fun toJson(w: DailyWeather) = JSONObject()
-        .put("doy", JSONArray(w.doy.toList())).put("p", JSONArray(w.precip.toList()))
-        .put("t", JSONArray(w.tmean.toList())).put("tn", JSONArray(w.tmin.toList()))
-        .put("e", JSONArray(w.et0.toList())).put("z", w.elevation)
+        .put("doy", JSONArray(w.doy.toList())).put("p", ja(w.precip))
+        .put("t", ja(w.tmean)).put("tn", ja(w.tmin))
+        .put("e", ja(w.et0)).put("z", if (w.elevation.isFinite()) w.elevation else 0.0)
 
     private fun arr(o: JSONObject, k: String): DoubleArray {
         val a = o.getJSONArray(k)
@@ -107,12 +114,36 @@ object WeatherGrid {
                 if (w != null) { pts[idx] = w; synchronized(mem) { mem[k] = w } } else missing += Triple(i, j, idx)
             }
         }
-        for (chunk in missing.chunked(PER_REQUEST)) {
+        var limited: String? = null
+        var retryIn = 0L
+        for ((ci, chunk) in missing.chunked(PER_REQUEST).withIndex()) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (now < cooldownUntil) {
+                limited = cooldownReason
+                retryIn = (cooldownUntil - now) / 1000 + 1
+                break
+            }
+            if (ci > 0) kotlinx.coroutines.delay(PAUSE_MS)
             val lats = chunk.joinToString(",") { (it.second * s).f3() }
             val lons = chunk.joinToString(",") { (it.first * s).f3() }
             val url = "https://api.open-meteo.com/v1/forecast?latitude=$lats&longitude=$lons&daily=$VARS" +
                 "&past_days=$PAST&forecast_days=$FUTURE&timezone=GMT"
-            val txt = Http.getText(url)
+            val txt = try {
+                Http.getText(url)
+            } catch (e: IOException) {
+                val msg = e.message ?: ""
+                if (!msg.startsWith("HTTP 429")) throw e
+                val (secs, why) = when {
+                    msg.contains("Daily", true) -> 3600L * 3 to "limite journalière"
+                    msg.contains("Hourly", true) -> 900L to "limite horaire"
+                    else -> 65L to "limite par minute"
+                }
+                cooldownUntil = android.os.SystemClock.elapsedRealtime() + secs * 1000
+                cooldownReason = why
+                limited = why
+                retryIn = secs
+                break
+            }
             val t = txt.trimStart()
             val objs = if (t.startsWith("[")) JSONArray(t).let { a -> List(a.length()) { a.getJSONObject(it) } } else listOf(JSONObject(t))
             if (objs.size != chunk.size) throw IOException("réponse météo inattendue")
@@ -130,12 +161,13 @@ object WeatherGrid {
                     synchronized(mem) { mem["${today()}|$s|$i|$j"] = w }
                     val f = file(s, i, j)
                     f.parentFile?.mkdirs()
-                    f.writeText(toJson(w).toString())
+                    toJson(w).toString()?.let { f.writeText(it) }
                 }
             }
         }
         cleanOld()
-        return WxField(s, i0, j0, nx, ny, pts)
+        if (pts.all { it == null }) throw IOException("Open-Meteo : $limited, nouvel essai dans $retryIn s")
+        return WxField(s, i0, j0, nx, ny, pts, limited?.let { "$it Open-Meteo" }, retryIn)
     }
 
     private fun cleanOld() {
@@ -145,8 +177,13 @@ object WeatherGrid {
 }
 
 /** Treillis de séries météo ; `pts[(j - j0) * nx + (i - i0)]`, point (lon = i·s, lat = j·s). */
-class WxField(val s: Double, val i0: Int, val j0: Int, val nx: Int, val ny: Int, val pts: Array<DailyWeather?>) {
-    fun covers(south: Double, north: Double, west: Double, east: Double) =
+class WxField(
+    val s: Double, val i0: Int, val j0: Int, val nx: Int, val ny: Int, val pts: Array<DailyWeather?>,
+    /** non nul si le téléchargement a été interrompu par une limite Open-Meteo */
+    val partial: String? = null,
+    val retryIn: Long = 0,
+) {
+    fun covers(south: Double, north: Double, west: Double, east: Double) = partial == null &&
         west >= (i0 + 1) * s && east <= (i0 + nx - 2) * s && south >= (j0 + 1) * s && north <= (j0 + ny - 2) * s
 }
 

@@ -1,0 +1,1 @@
+Correctif : « Météo indisponible » (valeurs manquantes d'Open-Meteo) et limites d'appels par minute (grille plus lâche, requêtes espacées, reprise automatique).

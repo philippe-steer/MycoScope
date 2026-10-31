@@ -184,9 +184,17 @@ fun MycoApp() {
             val f = WeatherGrid.field(bb.latSouth, bb.latNorth, bb.lonWest, bb.lonEast, s)
             runCatching { Piezo.refresh(bb.latSouth, bb.latNorth, bb.lonWest, bb.lonEast) }
             wx = f
-            status = ""
+            if (f.partial != null) {
+                status = "Météo partielle (${f.partial}) : suite dans ${f.retryIn} s"
+                delay(f.retryIn * 1000 + 500)
+                viewTick++ // relance : les points déjà reçus sont en cache
+            } else status = ""
         } catch (e: Exception) {
-            status = "Météo indisponible : ${e.message}"
+            status = "Météo indisponible : ${e.message ?: e.javaClass.simpleName}"
+            if ((e.message ?: "").contains("nouvel essai")) {
+                delay(65_000)
+                viewTick++
+            }
         }
     }
 
