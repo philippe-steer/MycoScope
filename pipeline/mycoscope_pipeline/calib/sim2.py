@@ -68,6 +68,7 @@ def main():
     a = ap.parse_args()
     a.work.mkdir(parents=True, exist_ok=True)
     occ = pd.read_csv(a.occ)
+    occ = occ[~occ.species.astype(str).str.startswith("_")]  # traceurs d'effort : pas de météo
     res = sorted(resources())
     end = dt.date.today()
     nd = (end - DAY0).days + 1

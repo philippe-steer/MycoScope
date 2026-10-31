@@ -36,16 +36,18 @@ def bounds_for(p0: np.ndarray):
 class PhenoData:
     """Séries (N, WINDOW) centrées sur les observations."""
 
-    def __init__(self, P, T, TN, E, DOY, ZG, ELEV, DM):
+    def __init__(self, P, T, TN, E, DOY, ZG, ELEV, DM, W=None):
         self.P, self.T, self.TN, self.E, self.DOY = P, T, TN, E, DOY
         self.ZG, self.ELEV, self.DM = ZG, ELEV, DM
+        self.W = W  # effort relatif (N, len(OFFSETS)) ou None
         self.idx = np.tile(CASE + OFFSETS, (len(P), 1)).astype(np.int64)
 
     def __len__(self):
         return len(self.P)
 
     def subset(self, m):
-        return PhenoData(*(a[m] for a in (self.P, self.T, self.TN, self.E, self.DOY, self.ZG, self.ELEV, self.DM)))
+        return PhenoData(*(a[m] for a in (self.P, self.T, self.TN, self.E, self.DOY, self.ZG, self.ELEV, self.DM)),
+                         W=None if self.W is None else self.W[m])
 
     def F(self, p, dm=None):
         return fruiting_batch(p, self.P, self.T, self.TN, self.E, self.DOY, self.ZG, self.ELEV,
@@ -64,7 +66,7 @@ def _full(theta, p0):
 
 def score(p, data: PhenoData) -> float:
     """Gain moyen de log-vraisemblance par rapport au hasard (log 7), en nats."""
-    return float(case_control_loglik(data.F(p)).mean() + np.log(len(OFFSETS)))
+    return float(case_control_loglik(data.F(p), data.W).mean() + np.log(len(OFFSETS)))
 
 
 def fit_phenology(p0: np.ndarray, data: PhenoData, lam: float = 0.002, seed: int = 0, maxiter: int = 80):
@@ -73,12 +75,13 @@ def fit_phenology(p0: np.ndarray, data: PhenoData, lam: float = 0.002, seed: int
 
     def obj(theta):
         p = _full(theta, p0)
-        ll = case_control_loglik(data.F(p)).mean()
+        ll = case_control_loglik(data.F(p), data.W).mean()
         return -ll + lam * np.sum(((theta - theta0) / sc) ** 2)
 
     res = differential_evolution(obj, bounds_for(p0), seed=seed, maxiter=maxiter, popsize=15, tol=1e-7, mutation=(0.5, 1.0),
                                  polish=False, init="sobol", x0=np.clip(theta0, *np.array(bounds_for(p0)).T))
-    res2 = minimize(obj, res.x, method="Nelder-Mead", options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-6})
+    res2 = minimize(obj, res.x, method="Nelder-Mead", bounds=bounds_for(p0),
+                    options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-6})
     best = res2.x if res2.fun < res.fun else res.x
     return _full(best, p0)
 
@@ -103,7 +106,7 @@ def fit_moisture_gains(species_runs, twi, gw_w):
         tot, n = 0.0, 0
         for (p, data), t, w in zip(species_runs, twi, gw_w):
             dm = np.clip(g[0] * (t - 7.0) + g[1] * w, -0.25, 0.25)
-            ll = case_control_loglik(data.F(p, dm))
+            ll = case_control_loglik(data.F(p, dm), data.W)
             tot += ll.sum()
             n += len(ll)
         return -tot / n
