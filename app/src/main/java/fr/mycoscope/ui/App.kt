@@ -48,7 +48,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import fr.mycoscope.BuildConfig
+import fr.mycoscope.data.Forests
 import fr.mycoscope.data.FruitField
+import fr.mycoscope.data.weatherAt
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import fr.mycoscope.data.PmTiles
 import fr.mycoscope.data.Piezo
 import fr.mycoscope.data.Store
@@ -112,17 +119,23 @@ fun MycoApp() {
     var viewTick by remember { mutableIntStateOf(0) }
     var fruitTick by remember { mutableIntStateOf(0) }
     var wx by remember { mutableStateOf<WxField?>(null) }
+    var tab by remember { mutableIntStateOf(0) }
+    var showForests by remember { mutableStateOf(store.forests) }
+    var zoneAt by remember { mutableStateOf<GeoPoint?>(null) }
+    var zone by remember { mutableStateOf<ZoneReport?>(null) }
+    var legend by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
     val density = LocalDensity.current.density
     val mapView = remember { createMap(ctx, topo, GeoPoint(store.lastLat, store.lastLon), store.lastZoom) }
     val overlay = remember { MushroomOverlay(density) }
     val dot = remember { LocationDotOverlay(density) }
+    val forestOverlay = remember { Forests.overlay(ctx) }
     val locate = rememberMyLocation(mapView, dot, 13.0)
 
     DisposableEffect(Unit) {
         val events = MapEventsOverlay(object : MapEventsReceiver {
             override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean { probe = p; return true }
-            override fun longPressHelper(p: GeoPoint?): Boolean = false
+            override fun longPressHelper(p: GeoPoint?): Boolean { zoneAt = p; probe = null; return true }
         })
         mapView.overlays.add(0, events)
         mapView.overlays.add(overlay)
@@ -206,6 +219,25 @@ fun MycoApp() {
         overlay.refresh()
     }
 
+    LaunchedEffect(showForests) {
+        store.forests = showForests
+        mapView.overlays.remove(forestOverlay)
+        if (showForests) {
+            val i = mapView.overlays.indexOf(overlay)
+            mapView.overlays.add(if (i >= 0) i + 1 else mapView.overlays.size, forestOverlay)
+            if (legend == null) legend = Forests.legend()
+        }
+        mapView.invalidate()
+    }
+
+    LaunchedEffect(zoneAt) {
+        val p = zoneAt ?: run { zone = null; return@LaunchedEffect }
+        zone = null
+        val pm = overlay.data ?: return@LaunchedEffect
+        val w = weatherAt(p.latitude, p.longitude, wx)
+        zone = withContext(Dispatchers.Default) { runCatching { Zone.compute(pm, overlay, species, p.latitude, p.longitude, w) }.getOrNull() }
+    }
+
     LaunchedEffect(topo) {
         store.topo = topo
         mapView.setTopo(topo)
@@ -216,9 +248,30 @@ fun MycoApp() {
         val p = probe ?: run { info = null; return@LaunchedEffect }
         val px = withContext(Dispatchers.IO) { runCatching { overlay.pixelAt(p.latitude, p.longitude) }.getOrNull() }
         info = PointInfo(p, px, overlay.fruit?.takeIf { it.sp.id == sp.id })
+        val forest = Forests.infoAt(p.latitude, p.longitude)
+        var env: Triple<DoubleArray, DoubleArray, DoubleArray>? = null
+        val c = px?.color
+        if (c != null && Enc.valid(c)) {
+            val w = weatherAt(p.latitude, p.longitude, wx)
+            if (w != null) env = withContext(Dispatchers.Default) {
+                val ee = Model.effectiveElev(Enc.elev(c), Enc.aspc(c))
+                val dm = Model.moistureOffset(Enc.twic(c), Piezo.anomaly(p.latitude, p.longitude))
+                runCatching { Model.envelope(sp, w.w, ee, dm, WeatherGrid.TODAY) }.getOrNull()
+            }
+        }
+        info = PointInfo(p, px, overlay.fruit?.takeIf { it.sp.id == sp.id }, forest, env)
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Scaffold(bottomBar = {
+        NavigationBar {
+            NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Text("🗺️", fontSize = 20.sp) }, label = { Text("Carte") })
+            NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Text("📖", fontSize = 20.sp) }, label = { Text("Comprendre") })
+        }
+    }) { pad ->
+    if (tab == 1) {
+        Box(Modifier.padding(pad)) { ExplainScreen(species, sp) { spId = it } }
+    } else
+    Box(Modifier.fillMaxSize().padding(pad)) {
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
 
         // ---- haut : espèce + mode
@@ -240,6 +293,15 @@ fun MycoApp() {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(selected = !habitatMode, onClick = { habitatMode = false }, label = { Text("Conditions du jour") })
                 FilterChip(selected = habitatMode, onClick = { habitatMode = true }, label = { Text("Habitat seul") })
+                FilterChip(selected = showForests, onClick = { showForests = !showForests }, label = { Text("Forêts publiques") })
+            }
+            if (showForests) legend?.let {
+                Surface(shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    Column(Modifier.padding(4.dp)) {
+                        Image(it.asImageBitmap(), contentDescription = "Légende forêts publiques", modifier = Modifier.width(200.dp))
+                        Text("Ailleurs : forêts surtout privées", fontSize = 10.sp)
+                    }
+                }
             }
         }
 
@@ -269,7 +331,13 @@ fun MycoApp() {
             }
         }
 
-        info?.let { PointCard(it, sp, dayOffset, Modifier.align(Alignment.Center).padding(16.dp)) { probe = null } }
+        info?.let {
+            PointCard(it, sp, dayOffset, Modifier.align(Alignment.Center).padding(16.dp),
+                onZone = { zoneAt = it.p; probe = null }) { probe = null }
+        }
+        if (zoneAt != null) ZoneCard(zone, true, Modifier.align(Alignment.Center).padding(16.dp),
+            onPick = { s -> spId = s.id; zoneAt = null }) { zoneAt = null }
+    }
     }
 
     if (showSpecies) SpeciesDialog(species, spId, { spId = it; showSpecies = false }) { showSpecies = false }
@@ -299,10 +367,15 @@ private fun Legend() {
     }
 }
 
-class PointInfo(val p: GeoPoint, val px: PixelInfo?, val fruit: FruitField?)
+class PointInfo(
+    val p: GeoPoint, val px: PixelInfo?, val fruit: FruitField?,
+    val forest: Forests.Info? = null,
+    /** (indice, bas, haut) jour par jour sur toute la série météo */
+    val env: Triple<DoubleArray, DoubleArray, DoubleArray>? = null,
+)
 
 @Composable
-private fun PointCard(info: PointInfo, sp: Species, dayOffset: Int, modifier: Modifier, onClose: () -> Unit) {
+private fun PointCard(info: PointInfo, sp: Species, dayOffset: Int, modifier: Modifier, onZone: () -> Unit, onClose: () -> Unit) {
     Card(modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp).verticalScroll(rememberScrollState())) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -323,21 +396,54 @@ private fun PointCard(info: PointInfo, sp: Species, dayOffset: Int, modifier: Mo
                 Text("Altitude ≈ ${elev.toInt()} m · exposition ${Enc.ASPECT_LABEL[Enc.aspc(c).coerceIn(0, 8)]}" +
                     " · humidité topo. (TWI) ${Enc.twic(c)}/15", fontSize = 13.sp)
                 val f = info.fruit
-                if (f != null) {
+                val env = info.env
+                val d0 = WeatherGrid.PAST + WeatherGrid.SHOW_FROM
+                val nd = WeatherGrid.SHOW_TO - WeatherGrid.SHOW_FROM + 1
+                val sel = dayOffset - WeatherGrid.SHOW_FROM
+                if (env != null && env.first.size >= d0 + nd) {
+                    val base = FloatArray(nd) { (env.first[d0 + it] * h).toFloat() }
+                    val lo = FloatArray(nd) { (env.second[d0 + it] * h).toFloat() }
+                    val hi = FloatArray(nd) { (env.third[d0 + it] * h).toFloat() }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Indice J-14 … J+7 (barres) et fourchette d'incertitude (bande)", fontSize = 12.sp)
+                    SeriesChart(base, sel, -WeatherGrid.SHOW_FROM, lo, hi)
+                    val b = base[sel]
+                    val width = hi[sel] - lo[sel]
+                    val level = when {
+                        sp.experimental || width > 0.45f -> "faible"
+                        !sp.calibrated || width > 0.25f || dayOffset > 3 -> "moyenne"
+                        else -> "bonne"
+                    }
+                    Text("${dayLabel(dayOffset)} : indice ${(b * 100).toInt()} % " +
+                        "(fourchette ${(lo[sel] * 100).toInt()}–${(hi[sel] * 100).toInt()} %) · fiabilité $level",
+                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    val why = buildList {
+                        add(if (sp.calibrated) "phénologie calée sur ${sp.nObs} observations" else "paramètres a priori, non calés")
+                        if (dayOffset > 0) add("prévision à ${dayOffset} j")
+                        if (sp.experimental) add("espèce expérimentale")
+                    }
+                    Text(why.joinToString(" · "), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if (f != null) {
                     val ee = Model.effectiveElev(elev, Enc.aspc(c))
                     val ser = f.series(info.p.latitude, info.p.longitude, ee, Enc.twic(c))
                     Spacer(Modifier.height(8.dp))
                     Text("Fructification J-14 … J+7 (aujourd'hui en trait)", fontSize = 12.sp)
-                    SeriesChart(ser, dayOffset - WeatherGrid.SHOW_FROM, -WeatherGrid.SHOW_FROM)
-                    val w = f.nearestWeather(info.p.latitude, info.p.longitude)
-                    if (w != null) {
-                        val t = WeatherGrid.TODAY
-                        val p15 = (t - 14 until t).sumOf { w.precip[it].takeIf { v -> v.isFinite() } ?: 0.0 }
-                        val p7f = (t until minOf(w.n, t + 7)).sumOf { w.precip[it].takeIf { v -> v.isFinite() } ?: 0.0 }
-                        Text("Pluie : %.0f mm sur 14 j · prévue %.0f mm sur 7 j".format(FR, p15, p7f), fontSize = 12.sp)
-                    }
+                    SeriesChart(ser, sel, -WeatherGrid.SHOW_FROM)
+                }
+                val w = f?.nearestWeather(info.p.latitude, info.p.longitude)
+                if (w != null) {
+                    val t = WeatherGrid.TODAY
+                    val p15 = (t - 14 until t).sumOf { w.precip[it].takeIf { v -> v.isFinite() } ?: 0.0 }
+                    val p7f = (t until minOf(w.n, t + 7)).sumOf { w.precip[it].takeIf { v -> v.isFinite() } ?: 0.0 }
+                    Text("Pluie : %.0f mm sur 14 j · prévue %.0f mm sur 7 j".format(FR, p15, p7f), fontSize = 12.sp)
                 }
             }
+            info.forest?.let {
+                Spacer(Modifier.height(6.dp))
+                Text((if (it.isPublic) "🌲 " else "🔒 ") + it.label(), fontSize = 12.sp,
+                    color = if (it.isPublic) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error)
+            }
+            TextButton(onClick = onZone) { Text("Que trouver dans ce secteur ?") }
             if (sp.lookalikes.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text("⚠ Confusions : " + sp.lookalikes, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
@@ -347,11 +453,17 @@ private fun PointCard(info: PointInfo, sp: Species, dayOffset: Int, modifier: Mo
 }
 
 @Composable
-private fun SeriesChart(v: FloatArray, sel: Int, today: Int) {
+private fun SeriesChart(v: FloatArray, sel: Int, today: Int, lo: FloatArray? = null, hi: FloatArray? = null) {
     val line = MaterialTheme.colorScheme.onSurface
     Canvas(Modifier.fillMaxWidth().height(70.dp).padding(vertical = 4.dp)) {
         val n = v.size
         val bw = size.width / n
+        if (lo != null && hi != null) for (i in 0 until n) {
+            val top = size.height * (1 - hi[i].coerceIn(0f, 1f))
+            val bot = size.height * (1 - lo[i].coerceIn(0f, 1f))
+            drawRect(Color(0x33607D8B), topLeft = androidx.compose.ui.geometry.Offset(i * bw, top),
+                size = androidx.compose.ui.geometry.Size(bw, (bot - top).coerceAtLeast(1f)))
+        }
         for (i in 0 until n) {
             val h = v[i].coerceIn(0f, 1f) * size.height
             drawRect(Color(if (h > 0) Ramp.color(maxOf(v[i], 0.06f)) else 0),

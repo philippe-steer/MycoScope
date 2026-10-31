@@ -12,8 +12,8 @@ android {
         applicationId = "fr.mycoscope"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.1.5"
+        versionCode = 7
+        versionName = "0.2.0"
         // Couches environnementales (PMTiles) : release « data-v1 » du dépôt GitHub
         buildConfigField("String", "DATA_URL",
             "\"https://github.com/philippe-steer/MycoScope/releases/download/data-v1/france.pmtiles\"")

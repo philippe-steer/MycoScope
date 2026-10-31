@@ -22,6 +22,19 @@ import kotlin.math.min
 object Http {
     val UA = "MycoScope/" + BuildConfig.VERSION_NAME + " (+https://github.com/philippe-steer/MycoScope)"
 
+    suspend fun getBytes(url: String): ByteArray = withContext(Dispatchers.IO) {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 15_000
+        conn.readTimeout = 60_000
+        conn.setRequestProperty("User-Agent", UA)
+        try {
+            if (conn.responseCode !in 200..299) throw IOException("HTTP ${conn.responseCode}")
+            conn.inputStream.use { it.readBytes() }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     suspend fun getText(url: String): String = withContext(Dispatchers.IO) {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 15_000
@@ -174,6 +187,24 @@ object WeatherGrid {
         val keep = today().toString()
         File(cacheRoot, "wx").listFiles()?.filter { it.name != keep }?.forEach { it.deleteRecursively() }
     }
+}
+
+/** Séries météo au point de treillis le plus proche d'un lieu. */
+class DailyWeatherAt(val w: DailyWeather)
+
+/** Météo au lieu : depuis le champ courant s'il le couvre, sinon petite requête (1 à 4 points). */
+suspend fun weatherAt(lat: Double, lon: Double, field: WxField?): DailyWeatherAt? {
+    field?.let { f ->
+        val i = Math.round(lon / f.s).toInt() - f.i0
+        val j = Math.round(lat / f.s).toInt() - f.j0
+        if (i in 0 until f.nx && j in 0 until f.ny) f.pts[j * f.nx + i]?.let { return DailyWeatherAt(it) }
+    }
+    return runCatching {
+        val f = WeatherGrid.field(lat - 0.01, lat + 0.01, lon - 0.01, lon + 0.01, 0.125)
+        val i = Math.round(lon / f.s).toInt() - f.i0
+        val j = Math.round(lat / f.s).toInt() - f.j0
+        f.pts[j * f.nx + i]?.let { DailyWeatherAt(it) }
+    }.getOrNull()
 }
 
 /** Treillis de séries météo ; `pts[(j - j0) * nx + (i - i0)]`, point (lon = i·s, lat = j·s). */
