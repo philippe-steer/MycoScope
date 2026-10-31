@@ -1,0 +1,19 @@
+name: Sources des posters
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  sources:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pipeline/requirements.txt
+      - run: cd pipeline && python -m mycoscope_pipeline.poster_sources "$RUNNER_TEMP/ps"
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view sources-poster >/dev/null 2>&1 || gh release create sources-poster --title "Sources des posters" --notes "MNT Copernicus 30 m par région, contours administratifs (france-geojson), forêts publiques ONF."
+          gh release upload sources-poster "$RUNNER_TEMP"/ps/* --clobber
