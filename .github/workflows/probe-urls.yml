@@ -6,12 +6,22 @@ jobs:
     steps:
       - run: |
           curl -s -m 120 "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetCapabilities" -o w.xml
-          echo "::notice title=wmts::$(wc -c < w.xml) o"
-          grep -oE '<ows:Identifier>[^<]*(FORE|ONF|PUBLI|DOMAN)[^<]*</ows:Identifier>' w.xml | sort -u | tr '\n' ' ' | cut -c1-2000 | sed 's/^/::notice title=wmts layers::/'; echo
-          curl -s -m 120 "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&REQUEST=GetCapabilities" -o v.xml
-          echo "::notice title=wms-v::$(wc -c < v.xml) o"
-          grep -oE '<Name>[^<]*(FORE|ONF|PUBLI|DOMAN|foret)[^<]*</Name>' v.xml | sort -u | tr '\n' ' ' | cut -c1-2000 | sed 's/^/::notice title=wms-v layers::/'; echo
-          curl -s -m 120 "https://data.geopf.fr/wms-r/wms?SERVICE=WMS&REQUEST=GetCapabilities" -o r.xml
-          grep -oE '<Name>[^<]*(FORE|ONF|PUBLI|DOMAN|foret)[^<]*</Name>' r.xml | sort -u | tr '\n' ' ' | cut -c1-2000 | sed 's/^/::notice title=wms-r layers::/'; echo
-          curl -sL -m 120 "https://geo-onf.opendata.arcgis.com/api/search/v1/collections/dataset/items?q=forets%20publiques&limit=10" -o a.json
-          python3 -c "import json;d=json.load(open('a.json'));[print('::notice title=onf::'+f['properties'].get('title','')+' | '+str(f['properties'].get('url',''))[:200]) for f in d.get('features',[])]" || head -c 300 a.json
+          python3 - <<'PY'
+          import re
+          s=open('w.xml').read()
+          i=s.find('<ows:Identifier>FORETS.PUBLIQUES</ows:Identifier>'); a=s.rfind('<Layer>',0,i); b=s.find('</Layer>',i)
+          blk=re.sub(r'\s+',' ',s[a:b])
+          blk=re.sub(r'<TileMatrixLimits>.*?</TileMatrixLimits>','',blk)
+          print('::notice title=layer::'+blk[:1800])
+          PY
+          # tuile z13 sur la forêt de Rennes (48.17 N, -1.55 E)
+          for z in 12 13 14; do
+            read X Y < <(python3 -c "import math;z=$z;lat,lon=48.17,-1.55;n=2**z;print(int((lon+180)/360*n), int((1-math.asinh(math.tan(math.radians(lat)))/math.pi)/2*n))")
+            code=$(curl -s -m 60 -o t$z.png -w "%{http_code} %{content_type}" "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=FORETS.PUBLIQUES&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX=$z&TILEROW=$Y&TILECOL=$X&FORMAT=image/png")
+            echo "::notice title=tile z$z::$code $(wc -c < t$z.png) o ; $(python3 -c "from PIL import Image;im=Image.open('t$z.png').convert('RGBA');print(sorted(im.getcolors(100000) or [],reverse=True)[:5])" 2>&1 | head -c 400)"
+          done
+          # attributs (WMS vecteur, GetFeatureInfo au centre de la forêt de Rennes)
+          for L in FORETS.PUBLIQUES ONF.FORETS_PUBLIQUES; do
+            curl -s -m 60 "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=$L&QUERY_LAYERS=$L&CRS=EPSG:4326&BBOX=48.16,-1.57,48.18,-1.53&WIDTH=101&HEIGHT=101&I=50&J=50&INFO_FORMAT=application/json" -o fi.json
+            echo "::notice title=info $L::$(head -c 1500 fi.json | tr '\n' ' ')"
+          done
