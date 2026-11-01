@@ -1,5 +1,11 @@
 name: Sources des posters
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      deps:
+        description: "Départements (ex. 35,01,73) ; vide = régions prédéfinies"
+        required: false
+        default: ""
 permissions:
   contents: write
 jobs:
@@ -11,7 +17,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r pipeline/requirements.txt
-      - run: cd pipeline && python -m mycoscope_pipeline.poster_sources "$RUNNER_TEMP/ps"
+      - run: cd pipeline && python -m mycoscope_pipeline.poster_sources "$RUNNER_TEMP/ps" ${{ inputs.deps }}
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

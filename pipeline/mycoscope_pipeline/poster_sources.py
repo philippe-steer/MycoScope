@@ -28,7 +28,17 @@ def main():
         r = requests.get(GEO + f, headers=UA, timeout=300)
         r.raise_for_status()
         (out / f).write_bytes(r.content)
-    for name, (w, s, e, n) in REGIONS.items():
+    regions = dict(REGIONS)
+    if len(sys.argv) > 2:  # départements : python -m ... out 35,01,73
+        from shapely.geometry import shape
+        deps = {f["properties"]["code"]: shape(f["geometry"])
+                for f in json.loads((out / "departements.geojson").read_text())["features"]}
+        regions = {}
+        for code in sys.argv[2].split(","):
+            w, s, e, n = deps[code].bounds
+            mx, my = (e - w) * 0.06, (n - s) * 0.06
+            regions[f"dep{code}"] = (w - mx, s - my, e + mx, n + my)
+    for name, (w, s, e, n) in regions.items():
         g = TileGrid.from_lonlat_bounds(w, s, e, n, 12, pad_m=0)
         dem = load_dem(g)
         np.savez_compressed(out / f"dem_{name}.npz", dem=np.where(np.isfinite(dem), np.round(dem), -9999).astype(np.int16),
