@@ -34,6 +34,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -119,6 +120,8 @@ fun MycoApp() {
     var viewTick by remember { mutableIntStateOf(0) }
     var fruitTick by remember { mutableIntStateOf(0) }
     var wx by remember { mutableStateOf<WxField?>(null) }
+    var forceWx by remember { mutableStateOf(false) }
+    var clock by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var tab by remember { mutableIntStateOf(0) }
     var showForests by remember { mutableStateOf(store.forests) }
     var zoneAt by remember { mutableStateOf<GeoPoint?>(null) }
@@ -191,10 +194,14 @@ fun MycoApp() {
         val bb = mapView.boundingBox
         val s = WeatherGrid.spacingFor(bb.latNorth - bb.latSouth, bb.lonEast - bb.lonWest)
         val cur = wx
-        if (cur != null && cur.s == s && cur.covers(bb.latSouth, bb.latNorth, bb.lonWest, bb.lonEast)) return@LaunchedEffect
-        status = "Météo des 60 derniers jours…"
+        val force = forceWx
+        if (!force && cur != null && cur.s == s && !cur.stale() &&
+            cur.covers(bb.latSouth, bb.latNorth, bb.lonWest, bb.lonEast)) return@LaunchedEffect
+        status = if (cur != null && cur.stale()) "Mise à jour de la météo…" else "Météo des 60 derniers jours…"
         try {
-            val f = WeatherGrid.field(bb.latSouth, bb.latNorth, bb.lonWest, bb.lonEast, s)
+            val f = WeatherGrid.field(bb.latSouth, bb.latNorth, bb.lonWest, bb.lonEast, s, force)
+            forceWx = false
+            store.saveBox(bb.latSouth, bb.latNorth, bb.lonWest, bb.lonEast)
             runCatching { Piezo.refresh(bb.latSouth, bb.latNorth, bb.lonWest, bb.lonEast) }
             wx = f
             if (f.partial != null) {
@@ -208,6 +215,26 @@ fun MycoApp() {
                 delay(65_000)
                 viewTick++
             }
+        }
+    }
+
+    // Mise à jour automatique : au retour dans l'application et toutes les 10 min si elle reste ouverte
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                clock = System.currentTimeMillis()
+                if (wx?.stale() == true) viewTick++
+            }
+        }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs) }
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(10 * 60_000L)
+            clock = System.currentTimeMillis()
+            if (wx?.stale() == true) viewTick++
         }
     }
 
@@ -327,6 +354,15 @@ fun MycoApp() {
                     }
                     Legend()
                     if (status.isNotEmpty()) Text(status, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val w = wx
+                    if (!habitatMode && w != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                        val hm = java.text.SimpleDateFormat("EEE HH:mm", FR).format(java.util.Date(w.fetchedAt))
+                        val old = w.stale(clock)
+                        Text("Météo du $hm" + (if (w.usedOld) " (en partie ancienne)" else "") + (if (old) " · à actualiser" else ""),
+                            fontSize = 11.sp, modifier = Modifier.weight(1f),
+                            color = if (old) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { forceWx = true; viewTick++ }) { Text("↻ Actualiser", fontSize = 12.sp) }
+                    }
                 }
             }
         }
@@ -345,6 +381,8 @@ fun MycoApp() {
         topo, dataUrl,
         onTopo = { topo = it },
         onUrl = { u -> store.dataUrl = u; dataUrl = u.ifBlank { BuildConfig.DATA_URL } },
+        auto = store.autoUpdate,
+        onAuto = { a -> store.autoUpdate = a; fr.mycoscope.data.WeatherWorker.schedule(ctx.applicationContext, a) },
     ) { showSettings = false }
     if (showNotice) NoticeDialog { store.acceptedNotice = true; showNotice = false }
 }
@@ -507,8 +545,12 @@ private fun SpeciesDialog(species: List<Species>, current: String, onPick: (Stri
 }
 
 @Composable
-private fun SettingsDialog(topo: Boolean, url: String, onTopo: (Boolean) -> Unit, onUrl: (String) -> Unit, onDismiss: () -> Unit) {
+private fun SettingsDialog(
+    topo: Boolean, url: String, onTopo: (Boolean) -> Unit, onUrl: (String) -> Unit,
+    auto: Boolean, onAuto: (Boolean) -> Unit, onDismiss: () -> Unit,
+) {
     var u by remember { mutableStateOf(if (url == BuildConfig.DATA_URL) "" else url) }
+    var a by remember { mutableStateOf(auto) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { onUrl(u.trim()); onDismiss() }) { Text("OK") } },
@@ -518,6 +560,10 @@ private fun SettingsDialog(topo: Boolean, url: String, onTopo: (Boolean) -> Unit
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Fond topographique (OpenTopoMap)", Modifier.weight(1f))
                     Switch(checked = topo, onCheckedChange = onTopo)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Météo mise à jour en arrière-plan (toutes les 3 h, dernière zone vue)", Modifier.weight(1f))
+                    Switch(checked = a, onCheckedChange = { a = it; onAuto(it) })
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(u, { u = it }, label = { Text("Source des couches (.pmtiles)") },

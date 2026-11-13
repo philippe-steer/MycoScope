@@ -12,8 +12,8 @@ android {
         applicationId = "fr.mycoscope"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "0.2.0"
+        versionCode = 8
+        versionName = "0.2.1"
         // Couches environnementales (PMTiles) : release « data-v1 » du dépôt GitHub
         buildConfigField("String", "DATA_URL",
             "\"https://github.com/philippe-steer/MycoScope/releases/download/data-v1/france.pmtiles\"")
@@ -76,6 +76,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     implementation("org.osmdroid:osmdroid-android:6.1.20")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

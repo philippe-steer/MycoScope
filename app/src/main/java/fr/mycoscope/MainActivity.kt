@@ -19,6 +19,7 @@ class MainActivity : ComponentActivity() {
         conf.osmdroidTileCache = File(cacheDir, "osmdroid/tiles")
         WeatherGrid.cacheRoot = filesDir
         Piezo.load(this)
+        fr.mycoscope.data.WeatherWorker.schedule(applicationContext, fr.mycoscope.data.Store(this).autoUpdate)
         setContent { MycoTheme { MycoApp() } }
     }
 }
