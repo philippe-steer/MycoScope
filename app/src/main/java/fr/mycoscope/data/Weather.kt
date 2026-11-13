@@ -73,18 +73,23 @@ object WeatherGrid {
     // Open-Meteo gratuit : 600 appels/min, 5 000/h, 10 000/j ; 68 jours ≈ 5 appels par point.
     private const val PER_REQUEST = 20
     private const val PAUSE_MS = 2_500L
+    /** Durée de validité d'un point : Open-Meteo recalcule ses prévisions plusieurs fois par jour. */
+    const val TTL_MS = 3 * 3600_000L
 
     lateinit var cacheRoot: File
     @Volatile private var cooldownUntil = 0L
     @Volatile private var cooldownReason = ""
-    private val mem = HashMap<String, DailyWeather>()
+    private val mem = HashMap<String, Pair<Long, DailyWeather>>()
+
+    /** Oublie le cache mémoire (les fichiers restent comme secours hors réseau). */
+    fun invalidate() = synchronized(mem) { mem.clear() }
 
     fun spacingFor(latSpan: Double, lonSpan: Double): Double {
         val target = min(latSpan, lonSpan) / 3.0
         return SPACINGS.firstOrNull { it >= target } ?: SPACINGS.last()
     }
 
-    private fun today() = LocalDate.now(ZoneOffset.UTC)
+    fun today(): LocalDate = LocalDate.now(ZoneOffset.UTC)
 
     private fun file(s: Double, i: Int, j: Int) = File(cacheRoot, "wx/${today()}/${s}_${i}_$j.json")
 
@@ -106,7 +111,7 @@ object WeatherGrid {
     )
 
     /** Points du treillis couvrant la boîte (+ marge d'un pas), téléchargés si besoin. */
-    suspend fun field(south: Double, north: Double, west: Double, east: Double, s: Double): WxField {
+    suspend fun field(south: Double, north: Double, west: Double, east: Double, s: Double, force: Boolean = false): WxField {
         val i0 = floor(west / s).toInt() - 1
         val i1 = ceil(east / s).toInt() + 1
         val j0 = floor(south / s).toInt() - 1
@@ -115,16 +120,27 @@ object WeatherGrid {
         val ny = j1 - j0 + 1
         if (nx * ny > 900) throw IOException("zone trop grande")
         val pts = arrayOfNulls<DailyWeather>(nx * ny)
+        val stamps = LongArray(nx * ny)
+        val fallback = arrayOfNulls<DailyWeather>(nx * ny)
         val missing = ArrayList<Triple<Int, Int, Int>>()
+        val now0 = System.currentTimeMillis()
+        val day = today()
         withContext(Dispatchers.IO) {
             for (j in j0..j1) for (i in i0..i1) {
-                val k = "${today()}|$s|$i|$j"
+                val k = "$day|$s|$i|$j"
                 val idx = (j - j0) * nx + (i - i0)
                 val m = synchronized(mem) { mem[k] }
-                if (m != null) { pts[idx] = m; continue }
+                if (m != null && !force && now0 - m.first < TTL_MS) { pts[idx] = m.second; stamps[idx] = m.first; continue }
                 val f = file(s, i, j)
                 val w = if (f.exists()) runCatching { fromJson(JSONObject(f.readText())) }.getOrNull() else null
-                if (w != null) { pts[idx] = w; synchronized(mem) { mem[k] = w } } else missing += Triple(i, j, idx)
+                if (w != null && !force && now0 - f.lastModified() < TTL_MS) {
+                    pts[idx] = w; stamps[idx] = f.lastModified()
+                    synchronized(mem) { mem[k] = f.lastModified() to w }
+                } else {
+                    fallback[idx] = w ?: m?.second  // version plus ancienne du jour, si le réseau manque
+                    stamps[idx] = if (w != null) f.lastModified() else (m?.first ?: 0L)
+                    missing += Triple(i, j, idx)
+                }
             }
         }
         var limited: String? = null
@@ -145,7 +161,10 @@ object WeatherGrid {
                 Http.getText(url)
             } catch (e: IOException) {
                 val msg = e.message ?: ""
-                if (!msg.startsWith("HTTP 429")) throw e
+                if (!msg.startsWith("HTTP 429")) {
+                    if (fallback.any { it != null }) { limited = "réseau indisponible"; retryIn = 120; break }
+                    throw e
+                }
                 val (secs, why) = when {
                     msg.contains("Daily", true) -> 3600L * 3 to "limite journalière"
                     msg.contains("Hourly", true) -> 900L to "limite horaire"
@@ -171,16 +190,24 @@ object WeatherGrid {
                         arr(d, "et0_fao_evapotranspiration"), o.optDouble("elevation", 0.0),
                     )
                     pts[idx] = w
-                    synchronized(mem) { mem["${today()}|$s|$i|$j"] = w }
+                    val t = System.currentTimeMillis()
+                    stamps[idx] = t
+                    synchronized(mem) { mem["$day|$s|$i|$j"] = t to w }
                     val f = file(s, i, j)
                     f.parentFile?.mkdirs()
                     toJson(w).toString()?.let { f.writeText(it) }
                 }
             }
         }
+        // points non rafraîchis : on garde la version antérieure du jour plutôt qu'un trou
+        var usedOld = false
+        for (k in pts.indices) if (pts[k] == null && fallback[k] != null) { pts[k] = fallback[k]; usedOld = true }
         cleanOld()
         if (pts.all { it == null }) throw IOException("Open-Meteo : $limited, nouvel essai dans $retryIn s")
-        return WxField(s, i0, j0, nx, ny, pts, limited?.let { "$it Open-Meteo" }, retryIn)
+        val oldest = stamps.filterIndexed { k, t -> pts[k] != null && t > 0 }.minOrNull() ?: now0
+        return WxField(s, i0, j0, nx, ny, pts,
+            limited?.let { if (it == "réseau indisponible") it else "$it Open-Meteo" }, retryIn,
+            day = day, fetchedAt = oldest, usedOld = usedOld)
     }
 
     private fun cleanOld() {
@@ -213,7 +240,17 @@ class WxField(
     /** non nul si le téléchargement a été interrompu par une limite Open-Meteo */
     val partial: String? = null,
     val retryIn: Long = 0,
+    /** jour (UTC) des séries : l'indice PAST y correspond à « aujourd'hui » */
+    val day: LocalDate = WeatherGrid.today(),
+    /** heure de la donnée la plus ancienne du champ (ms) */
+    val fetchedAt: Long = System.currentTimeMillis(),
+    /** vrai si une partie des points vient d'un téléchargement antérieur (réseau ou quota) */
+    val usedOld: Boolean = false,
 ) {
+    /** À recharger : changement de jour ou prévisions de plus de 3 h. */
+    fun stale(now: Long = System.currentTimeMillis()) =
+        day != WeatherGrid.today() || now - fetchedAt > WeatherGrid.TTL_MS
+
     fun covers(south: Double, north: Double, west: Double, east: Double) = partial == null &&
         west >= (i0 + 1) * s && east <= (i0 + nx - 2) * s && south >= (j0 + 1) * s && north <= (j0 + ny - 2) * s
 }

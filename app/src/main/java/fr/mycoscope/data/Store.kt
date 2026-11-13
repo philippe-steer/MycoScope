@@ -40,4 +40,15 @@ class Store(ctx: Context) {
     var lastZoom: Double
         get() = sp.getFloat("zoom", 6f).toDouble()
         set(v) { sp.edit().putFloat("zoom", v.toFloat()).apply() }
+
+    /** Dernière zone affichée (sud, nord, ouest, est) : la mise à jour en arrière-plan la reprend. */
+    fun saveBox(s: Double, n: Double, w: Double, e: Double) {
+        sp.edit().putString("box", "$s,$n,$w,$e").apply()
+    }
+    val box: DoubleArray?
+        get() = sp.getString("box", null)?.split(",")?.mapNotNull { it.toDoubleOrNull() }?.takeIf { it.size == 4 }?.toDoubleArray()
+
+    var autoUpdate: Boolean
+        get() = sp.getBoolean("autoUpdate", true)
+        set(v) { sp.edit().putBoolean("autoUpdate", v).apply() }
 }
