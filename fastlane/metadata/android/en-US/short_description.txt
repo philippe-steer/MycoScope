@@ -1,0 +1,1 @@
+Mushroom weather: one map per species, habitat × recent weather

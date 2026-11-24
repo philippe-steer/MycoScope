@@ -1,0 +1,1 @@
+Weather now refreshes automatically: 3-hour validity, reload when returning to the app and every 10 min, "Refresh" button, background refresh every 3 h (can be turned off).

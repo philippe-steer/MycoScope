@@ -1,0 +1,1 @@
+Météo actualisée automatiquement : validité limitée à 3 h, rechargement au retour dans l'appli et toutes les 10 min, bouton « Actualiser », rafraîchissement en arrière-plan toutes les 3 h (désactivable).
