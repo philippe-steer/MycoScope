@@ -1,0 +1,10 @@
+<p><b>MycoScope</b> est une « météo des champignons » comestibles : une carte par espèce (cèpes, girolles, trompettes, chanterelles, pieds de mouton, lactaires, morilles…) qui croise <b>l'habitat</b> (essences forestières, géologie, pH du sol, relief) et <b>la météo</b> des semaines passées et à venir (pluie décalée, température du sol, humidité, gel, niveau des nappes).</p>
+<ul>
+<li>Indice du jour ou potentiel d'habitat seul, curseur de J-14 à J+7</li>
+<li>Fiche du point : essence, géologie, pH, altitude, exposition, courbe de fructification, pluie récente, confusions dangereuses</li>
+<li>Fourchette d'incertitude, forêts publiques ONF, bilan « Que trouver dans ce secteur ? »</li>
+<li>Onglet « Comprendre » : explication visuelle du modèle pour chaque espèce</li>
+</ul>
+<p>Couverture : France métropolitaine. Sans publicité, sans compte, sans serveur : données ouvertes uniquement (IGN, BRGM, Open-Meteo, Hub'Eau, © contributeurs OpenStreetMap).</p>
+<p><b>MycoScope n'identifie aucun champignon.</b> Ne consommez jamais un champignon sans certitude absolue (pharmacien, société mycologique). Respectez la réglementation locale et la propriété des forêts.</p>
+<p>Les couches d'habitat sont lues en ligne, au fil de la navigation, dans un fichier publié avec les versions du dépôt GitHub (ou depuis un fichier local, voir ⚙).</p>

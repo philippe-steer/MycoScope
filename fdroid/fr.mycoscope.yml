@@ -1,0 +1,29 @@
+# F-Droid build metadata for MycoScope.
+# To submit: fork https://gitlab.com/fdroid/fdroiddata, copy this file to
+# metadata/fr.mycoscope.yml, and open a merge request (see fdroid/SUBMIT.md).
+Categories:
+  - Science & Education
+  - Navigation
+License: GPL-3.0-or-later
+AuthorName: Philippe Steer
+SourceCode: https://github.com/philippe-steer/MycoScope
+IssueTracker: https://github.com/philippe-steer/MycoScope/issues
+Changelog: https://github.com/philippe-steer/MycoScope/releases
+
+AutoName: MycoScope
+
+RepoType: git
+Repo: https://github.com/philippe-steer/MycoScope.git
+
+Builds:
+  - versionName: 0.2.2
+    versionCode: 9
+    commit: v0.2.2
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9.]+$
+CurrentVersion: 0.2.2
+CurrentVersionCode: 9

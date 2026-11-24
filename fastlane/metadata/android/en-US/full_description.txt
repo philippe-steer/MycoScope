@@ -1,0 +1,10 @@
+<p><b>MycoScope</b> is a "weather forecast" for edible mushrooms: one map per species (porcini, chanterelles, horns of plenty, hedgehog mushrooms, milk caps, morels…) combining <b>habitat</b> (forest tree species, geology, soil pH, terrain) with <b>the weather</b> of the past and coming weeks (lagged rainfall, soil temperature, humidity, frost, groundwater levels).</p>
+<ul>
+<li>Today's index or habitat potential alone, time slider from 14 days ago to 7 days ahead</li>
+<li>Point details: tree species, geology, pH, elevation, aspect, fruiting curve, recent rain, dangerous look-alikes</li>
+<li>Uncertainty range, public (ONF) forests, "What can I find around here?" summary</li>
+<li>"Understand" tab: a visual explanation of the model for each species</li>
+</ul>
+<p>Coverage: mainland France. Interface in French. No ads, no account, no server: open data only (IGN, BRGM, Open-Meteo, Hub'Eau, © OpenStreetMap contributors).</p>
+<p><b>MycoScope does not identify mushrooms.</b> Never eat a mushroom unless you are absolutely certain of its identity (ask a pharmacist or a mycological society). Follow local regulations and respect forest ownership.</p>
+<p>Habitat layers are read online, as you browse the map, from a file published with the GitHub repository releases (or from a local file, see ⚙).</p>
